@@ -98,6 +98,40 @@ def candidate_summary(
     }
 
 
+def ranked_prefix_summary(
+    fresh: Mapping[str, Any], ranked_prefix: Sequence[str],
+    predicted_global: Sequence[float], physical_groups: Sequence[str],
+    fresh_result_file_sha256: str,
+) -> dict[str, Any]:
+    """Select the first exactly safe candidate from one fresh bank execution."""
+    if len(ranked_prefix) != len(predicted_global):
+        raise ValueError("top-five pilot prediction prefix differs")
+    rows = fresh.get("exact_case", {}).get("candidates", [])
+    by_name = {str(row["name"]): row for row in rows}
+    if len(by_name) != len(rows):
+        raise ValueError("top-five pilot fresh candidate names differ")
+    if any(name not in by_name for name in ranked_prefix):
+        raise ValueError("top-five pilot fresh bank lacks ranked candidate")
+
+    attempts = []
+    selected = None
+    for rank, (candidate_name, prediction) in enumerate(
+        zip(ranked_prefix, predicted_global), start=1,
+    ):
+        summary = candidate_summary(by_name[candidate_name], physical_groups)
+        summary.update({
+            "rank": rank,
+            "predicted_global": float(prediction),
+            "fresh_result_file_sha256": fresh_result_file_sha256,
+            "fresh_result_payload_sha256": fresh["result_payload_sha256"],
+        })
+        attempts.append(summary)
+        if summary["physical_safe"]:
+            selected = summary
+            break
+    return {"attempts": attempts, "selected": selected}
+
+
 def scientific_view(result: Mapping[str, Any]) -> dict[str, Any]:
     attempts = [
         {

@@ -43,8 +43,17 @@ export MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
 cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" -m unittest discover -s tests -p 'test_distal_top5_exact_verified_pilot.py' -v
+fresh_args=()
+if [[ -n "${FRESH_BANK_RESULT:-}" ]]; then
+  [[ -n "${FRESH_BANK_RESULT_SHA256:-}" && -n "${FRESH_BANK_RESULT_COMMIT:-}" ]] || exit 2
+  fresh_args=(
+    --fresh-bank-result "$FRESH_BANK_RESULT"
+    --fresh-bank-result-file-sha256 "$FRESH_BANK_RESULT_SHA256"
+    --fresh-bank-result-commit "$FRESH_BANK_RESULT_COMMIT"
+  )
+fi
 "$AEGIS_PYTHON" -m scripts.evaluate_distal_top5_exact_verified_pilot \
   --repo-root "$REMOTE_REPO" --table1-root "$TABLE1_ROOT" \
   --config "$CONFIG_PATH" --case-index "$SLURM_ARRAY_TASK_ID" \
   --expected-commit "$EXPECTED_GIT_COMMIT" --run-root "$run_root" \
-  --output "$output"
+  --output "$output" "${fresh_args[@]}"

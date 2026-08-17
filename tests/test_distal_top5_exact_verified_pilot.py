@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 
 from main.multilink_ellipsoid.top5_exact_verified_pilot import (
-    candidate_summary, load_config, scientific_view,
+    candidate_summary, load_config, ranked_prefix_summary, scientific_view,
 )
 
 
@@ -60,6 +60,44 @@ class Top5ExactVerifiedPilotTest(unittest.TestCase):
         }
         view = scientific_view(result)
         self.assertNotIn("fresh_result_file_sha256", view["attempts"][0])
+
+    def test_one_fresh_bank_stops_at_first_safe_rank(self):
+        def row(name, l5):
+            return {
+                "name": name,
+                "exact_group_target": {
+                    "known_outcome": True, "safe_terminal": True,
+                    "group_future_violation": {
+                        "end_effector": -1.0, "palm": -1.0,
+                        "L5": l5, "L6": -1.0, "L7": -1.0,
+                    },
+                    "group_contact_sample_count": {
+                        "end_effector": 0, "palm": 0, "L5": 0,
+                        "L6": 0, "L7": 0,
+                    },
+                },
+                "source_raw_protected_contact_count": 0,
+                "raw_protected_contact_sample_count": 0,
+                "source_physical_veto": False,
+                "replayed_physical_veto": False,
+                "source_maximum_CAR_m": 0.0,
+                "replayed_maximum_CAR_m": 0.0,
+                "source_effective_post_AEGIS_correction_l2_action": 1.0,
+                "source_executed_actions": [[0.0] * 7 for _ in range(5)],
+            }
+
+        fresh = {
+            "result_payload_sha256": "payload",
+            "exact_case": {"candidates": [
+                row("unsafe", 0.1), row("safe", -0.1), row("later", -0.2),
+            ]},
+        }
+        value = ranked_prefix_summary(
+            fresh, ["unsafe", "safe", "later"], [0.1, 0.2, 0.3],
+            ["palm", "L5", "L6", "L7"], "file",
+        )
+        self.assertEqual(len(value["attempts"]), 2)
+        self.assertEqual(value["selected"]["candidate_name"], "safe")
 
 
 if __name__ == "__main__":

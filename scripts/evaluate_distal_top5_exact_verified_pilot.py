@@ -17,9 +17,12 @@ from scripts.replay_distal_three_ellipsoid_multicbf import (
 def run(
     *, repo_root: Path, table1_root: Path, config_path: Path, case_index: int,
     expected_commit: str, run_root: Path,
+    fresh_bank_result: Optional[Path] = None,
+    fresh_bank_result_file_sha256: Optional[str] = None,
+    fresh_bank_result_commit: Optional[str] = None,
 ) -> dict[str, Any]:
     from main.multilink_ellipsoid.top5_exact_verified_pilot import (
-        RESULT_SCHEMA, candidate_summary, load_config, payload_sha256,
+        RESULT_SCHEMA, load_config, payload_sha256, ranked_prefix_summary,
     )
 
     config = load_config(config_path)
@@ -47,46 +50,72 @@ def run(
     _require(_file_sha256(source_config) == case["source_config_file_sha256"],
              "top-five pilot source config differs")
     physical_groups = config["physical_acceptance_groups"]
-    attempts = []
-    selected = None
-    for rank, candidate_name in enumerate(frozen_prefix, start=1):
-        attempt_root = run_root / ("rank-%02d-%s" % (rank, candidate_name))
-        attempt_root.mkdir(parents=True, exist_ok=False)
-        candidate_runtime = attempt_root / "runtime"
-        candidate_runtime.mkdir()
+    if fresh_bank_result is None:
+        _require(
+            fresh_bank_result_file_sha256 is None
+            and fresh_bank_result_commit is None,
+            "top-five pilot partial fresh-bank binding differs",
+        )
+        candidate_runtime = run_root / "fresh-bank-runtime"
+        candidate_runtime.mkdir(parents=True, exist_ok=False)
         fresh = collect(
             repo_root=repo_root, table1_root=table1_root,
             config_path=source_config,
             case_index=int(case["source_case_index"]),
             expected_commit=expected_commit,
             run_root=candidate_runtime, candidate_workers=1,
-            candidate_shard_name=candidate_name,
+            candidate_shard_name=None,
+        )
+        fresh_path = run_root / "fresh-bank-result.json"
+        _atomic_write(fresh_path, fresh)
+        fresh_file_sha256 = _file_sha256(fresh_path)
+        execution_source = {
+            "mode": "fresh_complete_bank_execution",
+            "path": str(fresh_path),
+            "file_sha256": fresh_file_sha256,
+            "result_payload_sha256": fresh["result_payload_sha256"],
+            "execution_commit": expected_commit,
+        }
+    else:
+        _require(
+            fresh_bank_result_file_sha256 is not None
+            and fresh_bank_result_commit is not None,
+            "top-five pilot reused fresh-bank binding is incomplete",
         )
         _require(
-            fresh.get("status") == "complete"
-            and fresh.get("case_id") == case["case_id"]
-            and fresh.get("exact_case", {}).get("source_replay_exact") is True,
-            "top-five pilot fresh case differs",
+            _file_sha256(fresh_bank_result) == fresh_bank_result_file_sha256,
+            "top-five pilot reused fresh-bank file differs",
         )
-        exact_candidate = next(
-            row for row in fresh["exact_case"]["candidates"]
-            if row["name"] == candidate_name
+        fresh = _load(fresh_bank_result)
+        _require(
+            fresh.get("source", {}).get("commit") == fresh_bank_result_commit,
+            "top-five pilot reused fresh-bank commit differs",
         )
-        summary = candidate_summary(exact_candidate, physical_groups)
-        summary.update({
-            "rank": rank,
-            "predicted_global": float(
-                rank_state["ranked_candidate_prefix"][rank - 1]["predicted_global"]
-            ),
-        })
-        attempt_path = attempt_root / "fresh-result.json"
-        _atomic_write(attempt_path, fresh)
-        summary["fresh_result_file_sha256"] = _file_sha256(attempt_path)
-        summary["fresh_result_payload_sha256"] = fresh["result_payload_sha256"]
-        attempts.append(summary)
-        if summary["physical_safe"]:
-            selected = summary
-            break
+        fresh_file_sha256 = fresh_bank_result_file_sha256
+        execution_source = {
+            "mode": "validated_complete_bank_reuse",
+            "path": str(fresh_bank_result),
+            "file_sha256": fresh_file_sha256,
+            "result_payload_sha256": fresh["result_payload_sha256"],
+            "execution_commit": fresh_bank_result_commit,
+        }
+
+    _require(
+        fresh.get("status") == "complete"
+        and fresh.get("case_id") == case["case_id"]
+        and fresh.get("exact_case", {}).get("source_replay_exact") is True,
+        "top-five pilot fresh case differs",
+    )
+    ranked = ranked_prefix_summary(
+        fresh, frozen_prefix,
+        [
+            float(row["predicted_global"])
+            for row in rank_state["ranked_candidate_prefix"]
+        ],
+        physical_groups, fresh_file_sha256,
+    )
+    attempts = ranked["attempts"]
+    selected = ranked["selected"]
 
     top_one_unsafe = bool(
         attempts and attempts[0]["known_outcome"]
@@ -105,6 +134,7 @@ def run(
         "case_id": case["case_id"],
         "split": case["split"],
         "rank_source": rank_source,
+        "fresh_bank_execution": execution_source,
         "attempts": attempts,
         "selected_rank": None if selected is None else selected["rank"],
         "selected_candidate": None if selected is None else selected["candidate_name"],
@@ -130,11 +160,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--run-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--fresh-bank-result", type=Path)
+    parser.add_argument("--fresh-bank-result-file-sha256")
+    parser.add_argument("--fresh-bank-result-commit")
     args = parser.parse_args(argv)
     value = run(
         repo_root=args.repo_root.resolve(), table1_root=args.table1_root.resolve(),
         config_path=args.config.resolve(), case_index=args.case_index,
         expected_commit=args.expected_commit, run_root=args.run_root.resolve(),
+        fresh_bank_result=(
+            None if args.fresh_bank_result is None
+            else args.fresh_bank_result.resolve()
+        ),
+        fresh_bank_result_file_sha256=args.fresh_bank_result_file_sha256,
+        fresh_bank_result_commit=args.fresh_bank_result_commit,
     )
     _atomic_write(args.output.resolve(), value)
     print(json.dumps({
