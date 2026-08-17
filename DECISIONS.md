@@ -5910,7 +5910,7 @@ positive E46 released-EE proxy as physical contact.
 
 ## ADR-0193: Audit validation-only margins and a frozen L5 specialist
 
-- Status: preregistered; allocation-backed audit pending
+- Status: complete; ranking retained, calibrated safety NO-GO
 - Date: 2026-08-17
 
 Before changing the dataset, model, or controller again, isolate the inference
@@ -5933,3 +5933,25 @@ selections, safe support, abstention, intervention magnitude, per-constraint
 failures, and E15/E42.  Treat any test improvement only as motivation for a new
 prospective paper evaluation.  This gate cannot authorize simulation,
 correction safety, QP, denoising, deployment, or a certified CBF claim.
+
+H100 producer `41695`, independent replay `41696`, and validator `41701`
+reproduce both checkpoints and the full scientific view exactly.  Validation
+selects the original compact minimum-risk rule because it is `6/6` physically
+safe with no abstention; its opened-test result remains `7/9`, with L5 failures
+at E15 and E42.  Do not replace this rule with zero-threshold minimum
+intervention, which selects physical false-safes and UNKNOWN outcomes.
+
+Accept validation-derived margins only as an empirical abstention diagnostic.
+They reduce opened-test selected collision count to zero but accept only `1/9`
+for full EE/palm/L5 margins, `2/9` for compact L5 margins, and `3/9` for the
+compact-plus-33D L5 gate.  Reject these as a standalone action selector because
+safe support collapses, and reject the 33D specialist as the final fix because
+it still selects an EE/palm-unsafe validation action.
+
+The paper-level method should therefore be described as controller-conditioned
+future-risk **ranking** followed by finite-bank minimum-risk intervention, with
+empirical CAR/TSR evaluation and no calibrated-safety or CBF guarantee.  If the
+paper instead uses safe-or-abstain language, preregister and evaluate the actual
+abstention behavior (stop, backup, or VLA requery); abstention itself is not a
+safe executed action.  No further candidate-data collection is motivated by
+this selector ablation alone.

@@ -6357,3 +6357,49 @@ denoising, or closed loop is permitted.  This audit can determine whether the
 remaining failures are an inference-rule problem that merits a fresh
 prospective paper test.  It cannot authorize correction safety or a CBF claim
 from the already opened population.
+
+Final H100 inference producer `41695`, independent replay `41696`, and validator
+`41701` complete ADR-0193 with zero simulator rollouts and zero retraining.
+Both frozen checkpoints reproduce their known predictions with zero recorded
+error, and the complete scientific views agree exactly.  UNKNOWN candidates
+remain scored but censored from margin fitting and never counted as safe.
+
+The validation maximum-optimism margins are large: EE `0.471567`, palm
+`1.398977`, compact L5 `1.204603`, and fused compact/33D L5 `0.682427` in the
+dimensionless radial-slack target.  The validation-only arm choice therefore
+remains compact minimum risk: it selects `6/6` physically safe validation
+actions with no abstention or UNKNOWN.  On the already opened test it remains
+`7/9` physically safe; E15 and E42 remain L5-unsafe.
+
+Conservative gating removes selected physical collisions on the opened test,
+but collapses support.  Full per-group margins select `1/9` and abstain `8/9`;
+compact L5-only margins select `2/9` and abstain `7/9`; compact plus the 33D L5
+specialist selects `3/9` and abstains `6/9`.  All selected candidates in those
+three opened-test arms are physically safe, but none accepts E15 or E42.  The
+zero-margin safe-or-abstain rule is not conservative: it selects `3` known-safe,
+`2` physically unsafe, and `2` UNKNOWN outcomes while abstaining twice.
+
+The decisive inference is that the compact model is useful for candidate
+ranking but is not calibrated as a transferable safety threshold.  Maximum
+validation residual margins convert it into a high-precision abstention gate,
+not a useful standalone correction filter.  The 33D specialist improves L5
+selective coverage slightly but does not solve the EE/palm validation failures
+and is retained only as an ablation.  For a paper experiment, freeze compact
+minimum-risk ranking and claim empirical collision-rate reduction, not
+collision-free safety; alternatively, a safe-or-abstain system must define and
+test a real abstention backup/requery path.
+
+Several failed jobs are retained as apparatus history: `41671` used `/bin/sh`
+for a Bash-only source-prep wrapper; `41672` timed out during a full clone;
+`41677/41678/41682/41684/41686` established that CPU checkpoint arithmetic did
+not reproduce H100 outputs; `41688/41689/41691/41692` exposed test-discovery
+shadowing in the Anaconda environment; and `41697/41699` exposed shorthand
+state IDs and the H100-only allocation receipt.  None produced a scientific
+artifact or changed the registered arms, margins, data, models, or outcomes.
+
+Producer/replay/validation file SHA-256 values are
+`2ab162cb0fc5b8c698bec51c401c2df83ec1ce09037d0e839e0a7600487cdf79`,
+`d7883a54bafffec14f4e010f1c331b24328df2c9150fa72e67496c757e267c91`,
+and `2829fee5427e69512a2765a7ca5849725445aae7d49fbd82772e22701ca43a69`;
+the validation payload SHA-256 is
+`21adfb6de379a8fbddce437d1f5ae6ca7281eb7fa5f1dedd1e1dc8a64bb50ca4`.
