@@ -58,6 +58,10 @@ def _run_episode(
     *, repo_root: Path, runtime: Mapping[str, Any], case: Mapping[str, Any],
     archived: Mapping[str, Any], config: Mapping[str, Any], client: Any,
     frozen_episode: Optional[Mapping[str, Any]], output_root: Path,
+    selector_factory: Any = None,
+    selector_config: Optional[Mapping[str, Any]] = None,
+    selector_method: str = "select_safe_or_abstain",
+    selected_action_source: str = "full_episode_late_flow_safe_selector_no_QP",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     import numpy as np
 
@@ -140,10 +144,18 @@ def _run_episode(
         frozen_actions = None
         selections: list[dict[str, Any]] = []
         if producer:
-            selector = LiveTerminalizedSelector(
+            factory = (
+                LiveTerminalizedSelector
+                if selector_factory is None else selector_factory
+            )
+            selector = factory(
                 repo_root=repo_root, runtime=runtime, env=env,
                 obstacle_name=obstacle_name, archived=archived,
-                config=_selector_config(config), client=client,
+                config=(
+                    _selector_config(config)
+                    if selector_config is None else selector_config
+                ),
+                client=client,
             )
         else:
             frozen_actions = np.asarray(
@@ -175,7 +187,8 @@ def _run_episode(
                     seed = query_seed(
                         int(case["policy_noise_seed"]), query_index,
                     )
-                    selected, selection = selector.select_safe_or_abstain(
+                    selection_function = getattr(selector, selector_method)
+                    selected, selection = selection_function(
                         observation=observation,
                         task_description=str(task.language),
                         rng_seed=seed, query_index=query_index,
@@ -187,7 +200,7 @@ def _run_episode(
                         break
                     plan.extend(selected[index].copy() for index in range(5))
                 action = np.asarray(plan.popleft(), dtype=np.float64)
-                source_name = "full_episode_late_flow_safe_selector_no_QP"
+                source_name = str(selected_action_source)
 
             observation, reward, done, _, internal = monitor.execute(
                 action, step=step,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 
 CONFIG_SCHEMA = "vlsa_distal_terminalized_late_flow.v1"
@@ -158,6 +158,7 @@ def score_terminal_bank(
     candidate_names: Sequence[str],
     state_payload: Mapping[str, Any],
     primary_rows: Sequence[int] = (0, 1, 2, 3, 4),
+    model_rows: Optional[Sequence[int]] = None,
     translation_scale: float = 0.05,
 ) -> dict[str, Any]:
     """Score only clipped, terminal executable chunks with the frozen critic."""
@@ -167,8 +168,7 @@ def score_terminal_bank(
     import numpy as np
 
     from main.multilink_ellipsoid.compact_safety_coordinate_q import (
-        MODEL_ROWS,
-        safety_coordinate_feature,
+        MODEL_ROWS, safety_coordinate_feature,
     )
     from main.multilink_ellipsoid.compact_selector_ablation import (
         predict_serialized_mlp_float32,
@@ -191,7 +191,14 @@ def score_terminal_bank(
     )
     if float(translation_scale) != 0.05:
         raise ValueError("terminal scorer translation scale differs")
-    rows = tuple(int(row) for row in MODEL_ROWS)
+    explicit_model_rows = model_rows is not None
+    rows = tuple(
+        int(row) for row in (
+            MODEL_ROWS if model_rows is None else model_rows
+        )
+    )
+    if not rows or len(set(rows)) != len(rows):
+        raise ValueError("terminal scorer model rows differ")
     primary = tuple(int(row) for row in primary_rows)
     if not primary or not set(primary).issubset(rows):
         raise ValueError("terminal scorer primary rows differ")
@@ -209,11 +216,11 @@ def score_terminal_bank(
             ].tolist(),
         }
         for row in rows:
+            feature_kwargs = {"translation_scale": float(translation_scale)}
+            if explicit_model_rows:
+                feature_kwargs["model_rows"] = rows
             features.append(safety_coordinate_feature(
-                feature_case,
-                candidate,
-                row,
-                translation_scale=float(translation_scale),
+                feature_case, candidate, row, **feature_kwargs
             ))
             metadata.append((candidate_index, row))
     values = predict_serialized_mlp_float32(features, state_payload)

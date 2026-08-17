@@ -6920,3 +6920,20 @@ replay, and validation SHA-256 values are
 `9dcc3bad66fc3fa1a0ce998a38ce65e25f384c21708e944f28ddf283c04fc268`,
 `fd3245a75616800b5ff4e7b818799261ea3ed408c5a91054aab5499096964782`, and
 `17d70d24dc83deb2c98248b8e7f0c987ed43950c096717c7ffc4cf244c63b51e`.
+
+ADR-0203 preregisters the resulting single opened full-episode mechanism pilot
+on Spatial-I E15. The raw pi0.5 Table-1 episode is task-successful, while its
+opened step-65 nominal prefix is L5-unsafe (`Q_L5=+0.145699`) and ADR-0202's
+selected prefix is primary-safe (`Q_max=-0.314047`). Starting at query zero,
+each query obtains one ordinary pi0.5 chunk, constructs the frozen 13-name grid
+in the current minimum-slack tight-row local frame, scores only executable
+five-action chunks with the immutable ADR-0201 critic, and executes the minimum
+predicted tight-EE/palm/L5 risk chunk. L6 remains diagnostic.
+
+The rule never abstains and performs no candidate simulator rollout, QP,
+late-denoising modification, training, or collection. Stop on native success,
+raw robot-obstacle contact, CAR, or the registered timeout. A CPU exact-action
+replay must reproduce the complete scientific view. The result answers only
+whether this frozen offline ranker can preserve collision-free native task
+success in one opened case; it cannot establish population generalization or a
+safety/CBF claim.

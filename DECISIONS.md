@@ -6434,3 +6434,22 @@ Authorize one separately preregistered opened full-episode pilot using this
 exact rule and bank to test whether collision avoidance preserves native task
 success. Keep QP, denoising, continuous correction, calibration, generalization,
 safety and CBF claims blocked.
+
+### ADR-0203 run one opened tight-prefix full episode
+
+Use Spatial-I E15 because it supplies the required contrast without selecting a
+new case after a control outcome: its raw pi0.5 archive is task-successful, its
+already-opened step-65 nominal five-action prefix is L5-unsafe, and ADR-0202's
+frozen minimum-risk selection is exact-safe. Invoke the frozen ADR-0201 model
+from query zero and after every five executed actions. At each query, generate
+the same 13 registered local-frame names around the current raw pi0.5 chunk;
+derive the frame from the current minimum-slack tight palm/finger/L5/L6 row;
+score tight palm/fingers plus L5 as primary and L6 as diagnostic; then always
+execute the minimum predicted primary-risk candidate with intervention and
+registered order only as tie-breaks.
+
+Do not add a zero threshold, abstention, QP, late-flow modification, candidate
+rollout, new label, or retraining. Record raw contacts per palm/finger/L5/L6/L7,
+CAR, native task success, goal progress, every selection, runtime, and video.
+Require exact CPU action replay. This opened one-case test can validate or reject
+collision-free task-preservation mechanism evidence only.
