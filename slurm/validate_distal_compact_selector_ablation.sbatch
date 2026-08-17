@@ -25,7 +25,8 @@ export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 export PYTHONPATH=$REMOTE_REPO/safelibero:$REMOTE_REPO/main:$REMOTE_REPO
 cd "$REMOTE_REPO"
-"$AEGIS_PYTHON" -m unittest tests.test_distal_compact_selector_ablation -v
+"$AEGIS_PYTHON" -m unittest discover -s tests \
+  -p 'test_distal_compact_selector_ablation.py' -v
 tmp=$(mktemp "$(dirname "$OUTPUT")/.compact-selector-validation.XXXXXX")
 "$AEGIS_PYTHON" -m scripts.validate_distal_compact_selector_ablation \
   --repo-root "$REMOTE_REPO" --config "$CONFIG" \
