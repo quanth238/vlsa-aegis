@@ -6855,3 +6855,13 @@ the supported head and the other rows reported as auxiliary diagnostics—not a
 multi-link action-correction claim. Validation file/payload SHA-256 values are
 `96b52b5a494351ca8e5f27d32908d4072cfbda8a5f63a4d37e38449ddfaf1ff5`
 and `85bc470ca24587d54b0b6cf622edb67c5ac1b7b69f217ea528023e5919721c42`.
+
+ADR-0201 freezes the resulting training experiment without new simulation. It
+reuses the established compact shared 7D feature and 32x32 MLP, fits all ten
+tight/distal rows jointly on the 12 initially-safe training roots, and retains
+the two initially-unsafe roots as recovery diagnostics. Normalization and
+state/constraint balancing use training data only; weight decay is `1e-4` and
+the fixed final epoch is selected without validation tuning. L5 is the only
+supported boundary head. Tight palm/fingers and L6 remain diagnostic, and the
+already-opened six-case test cannot become an untouched claim. The next step is
+two parallel independent H100 fits followed by a CPU exact-result validator.

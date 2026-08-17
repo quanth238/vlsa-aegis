@@ -74,6 +74,7 @@ def load_config(path: Path) -> dict[str, Any]:
 def safety_coordinate_feature(
     exact_case: Mapping[str, Any], candidate: Mapping[str, Any], row_index: int,
     *, translation_scale: float,
+    model_rows: Sequence[int] = MODEL_ROWS,
 ) -> list[float]:
     """Return a causal 7D current-geometry/candidate representation."""
     import numpy as np
@@ -83,7 +84,8 @@ def safety_coordinate_feature(
     )
 
     row_index = int(row_index)
-    if row_index not in MODEL_ROWS:
+    allowed_rows = tuple(int(row) for row in model_rows)
+    if row_index not in allowed_rows or len(set(allowed_rows)) != len(allowed_rows):
         raise ValueError("compact safety-coordinate row differs")
     row_record = exact_case["initial_exact_robot_rows"][row_index]
     robot = Ellipsoid(

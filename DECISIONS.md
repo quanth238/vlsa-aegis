@@ -6358,3 +6358,22 @@ is safe-only. Therefore authorize diagnostic Q-only prefix-risk training, with
 L5 the only currently supported boundary head. Keep palm/finger/L6 outcomes as
 auxiliary diagnostics. Do not authorize correction, QP, paper-scale transfer,
 an untouched-test claim, or a safety certificate from this population.
+
+### ADR-0201 train one compact shared critic on tight prefix risk
+
+Do not recollect data or revive the 135D action encoding. Train the established
+compact shared 7D per-row MLP on ADR-0200 only. Its causal feature is current
+exact radial slack, the nominal first-step outward projection, and five
+effective-action outward projections. Its target is the worst negative radial
+slack over exactly the stored five-action prefix. Use the existing 32x32 SiLU
+network, AdamW weight decay `1e-4`, fixed seed, train-only state/constraint
+normalization, boundary-weighted symmetric Huber loss, and the fixed final
+epoch without validation checkpoint selection.
+
+Fit all ten rows jointly but exclude the two initially-unsafe training roots
+from prevention fitting. Treat L5 as the only supported boundary evaluation;
+report the five tight EE rows and L6 as diagnostics because they lack held-out
+two-sided support. The six test roots are already opened and remain diagnostic.
+Run two independent H100 fits and require an exact scientific-view match. No
+simulator step, correction, QP, denoising, closed loop, paper-scale claim,
+untouched-test claim, or safety/CBF claim is authorized by this training run.
