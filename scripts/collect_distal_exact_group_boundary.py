@@ -114,6 +114,7 @@ def collect(
     case_index: int, expected_commit: str, run_root: Path,
     candidate_workers: int = 1, candidate_shard_name: Optional[str] = None,
     source_only: bool = False,
+    candidate_subset_names: Optional[Sequence[str]] = None,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -313,28 +314,50 @@ def collect(
         if grid_bank:
             if bank.get("selected_candidate_names") is not None:
                 rows = _frozen_grid_subset_candidates(nominal, frame, bank)
-                if candidate_shard_name is None:
+                if candidate_shard_name is None and candidate_subset_names is None:
                     return rows
-                by_name = {row["name"]: row for row in rows}
-                _require(candidate_shard_name in by_name,
-                         "parallel candidate shard name differs")
-                return (
-                    [by_name["nominal"]]
-                    if candidate_shard_name == "nominal"
-                    else [by_name["nominal"], by_name[candidate_shard_name]]
-                )
+                if candidate_shard_name is not None:
+                    by_name = {row["name"]: row for row in rows}
+                    _require(candidate_shard_name in by_name,
+                             "parallel candidate shard name differs")
+                    return (
+                        [by_name["nominal"]]
+                        if candidate_shard_name == "nominal"
+                        else [by_name["nominal"], by_name[candidate_shard_name]]
+                    )
             rows = grid_candidate_definitions(
                 nominal, frame, {"finite_search": bank}, bank["temporal_profile"]
             )
+        elif generic_bank:
+            rows = generic_candidate_definitions(nominal, bank)
+        else:
+            rows = candidate_definitions(nominal, frame, bank)
+        if candidate_subset_names is None:
             return rows
-        if generic_bank:
-            return generic_candidate_definitions(nominal, bank)
-        return candidate_definitions(nominal, frame, bank)
+        names = [str(name) for name in candidate_subset_names]
+        _require(
+            names and names[0] == "nominal" and len(names) == len(set(names)),
+            "inference candidate subset differs",
+        )
+        by_name = {str(row["name"]): row for row in rows}
+        _require(
+            not (set(names) - set(by_name)),
+            "inference candidate subset is unavailable",
+        )
+        return [by_name[name] for name in names]
 
     _require(int(candidate_workers) >= 1, "candidate worker count differs")
     _require(
         not (candidate_shard_name is not None and int(candidate_workers) != 1),
         "candidate shard cannot recursively parallelize",
+    )
+    _require(
+        not (candidate_subset_names is not None and candidate_shard_name is not None),
+        "candidate subset and shard modes cannot be combined",
+    )
+    _require(
+        not (candidate_subset_names is not None and int(candidate_workers) != 1),
+        "inference candidate subset must execute sequentially",
     )
     source_path = run_root / "source-curve.json"
     parallel_started = time.perf_counter()

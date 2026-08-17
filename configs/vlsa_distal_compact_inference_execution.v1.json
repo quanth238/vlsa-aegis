@@ -1,0 +1,87 @@
+{
+  "schema_version": "vlsa_distal_compact_inference_execution.v1",
+  "protocol_id": "vlsa-distal-compact-inference-execution-v1",
+  "claim_scope": "Four opened held-out warning states selected to expose both the compact ranker's benefit and its known L5 limit. Execute only nominal and the frozen 7D minimum-predicted-risk candidate from the identical state. This is paired inference-mechanism evidence, not untouched generalization, full-episode task success, deployment, certification, or a CBF claim.",
+  "compact_result": {
+    "path": "/mnt/data/quanth/experiments/vlsa-distal-compact-safety-coordinate-q/compact-safety-coordinate-q-20260817a/result.json",
+    "file_sha256": "cb0fcf2e37761eb867fc222ea557d68812bdf192f9013f2adc93cfa790c8abb7",
+    "payload_sha256": "18cbafbdcd8f19b99a3f734bdf6d1e4f96bbbef241e923e65c29d33a5ec76191",
+    "model_sha256": "d7c36e5a70aec7f0680d610093679af28a29b0c0a24597cd1f73dfa0268c76a8"
+  },
+  "selection_rule": "minimum_predicted_primary_risk",
+  "primary_prediction_groups": ["diagnostic_end_effector", "palm", "L5"],
+  "physical_outcome_groups": ["palm", "L5", "L6", "L7"],
+  "candidate_execution": {
+    "candidate_names": ["nominal", "frozen_7D_minimum_risk_selection"],
+    "candidate_count_per_state": 2,
+    "released_AEGIS_EE_QP_enabled": false,
+    "learned_QP_enabled": false,
+    "exact_rollout_verifier_at_inference": false,
+    "outcome_used_to_change_selection": false,
+    "unchanged_OSC": true,
+    "complete_fixed_continuation": true,
+    "timeout_rule": "UNKNOWN_not_safe_or_unsafe"
+  },
+  "cases": [
+    {
+      "case_id": "vlsa-t1-goal-ii-t0-e39",
+      "split": "validation",
+      "stratum": "compact_recovers_prior_shared_L6_failure",
+      "source_config": "configs/vlsa_distal_whole_body_prospective_population.v1.json",
+      "source_config_file_sha256": "5bde1f7dea32b45fed09863973bc70e4950055a98714fe0f4afa8d5093e13367",
+      "source_case_index": 4,
+      "selected_candidate": "grid_p1_z0_m1_front_loaded_r2.0",
+      "selected_predicted_primary": -0.09328118779612471
+    },
+    {
+      "case_id": "vlsa-t1-long-ii-t3-e46",
+      "split": "test",
+      "stratum": "compact_recovers_prior_shared_palm_failure_with_EE_proxy_diagnostic",
+      "source_config": "configs/vlsa_distal_pi05_palm_l6_targeted_extension.v1.json",
+      "source_config_file_sha256": "49d3d3c0d3210ab2bd801d10ac3f46d2a24de18f99f9faefa7a5389882e896b6",
+      "source_case_index": 6,
+      "selected_candidate": "grid_p1_p1_z0_front_loaded_r2.0",
+      "selected_predicted_primary": 0.04745680585379608
+    },
+    {
+      "case_id": "vlsa-t1-spatial-i-t3-e15",
+      "split": "test",
+      "stratum": "compact_known_remaining_L5_failure",
+      "source_config": "configs/vlsa_distal_whole_body_progressive_extension.v1.json",
+      "source_config_file_sha256": "668bc7a1bf7401f705e0ae97a54158774f95227772de970067e09c934d2c6e2d",
+      "source_case_index": 12,
+      "selected_candidate": "grid_p1_p1_p1_front_loaded_r2.0",
+      "selected_predicted_primary": -0.019203411480683275
+    },
+    {
+      "case_id": "vlsa-t1-spatial-i-t3-e42",
+      "split": "test",
+      "stratum": "compact_known_remaining_L5_failure",
+      "source_config": "configs/vlsa_distal_whole_body_prospective_population.v1.json",
+      "source_config_file_sha256": "5bde1f7dea32b45fed09863973bc70e4950055a98714fe0f4afa8d5093e13367",
+      "source_case_index": 7,
+      "selected_candidate": "grid_m1_p1_m1_front_loaded_r2.0",
+      "selected_predicted_primary": 0.03177689607233525
+    }
+  ],
+  "evaluation": {
+    "paired_same_snapshot": true,
+    "report_every_failure": true,
+    "minimum_selected_physical_safe_count": 2,
+    "minimum_safe_count_improvement_over_nominal": 2,
+    "require_zero_selected_UNKNOWN": true,
+    "require_exact_independent_replay": true
+  },
+  "forbidden": [
+    "new_model_training_or_tuning",
+    "candidate_outcome_used_to_select_or_reorder",
+    "fresh_exact_rollout_verifier_before_execution",
+    "released_EE_QP",
+    "learned_QP_or_gradient_correction",
+    "denoising_guidance",
+    "candidate_bank_recollection",
+    "full_episode_or_task_success_claim",
+    "untouched_generalization_claim",
+    "deployment_certification_or_formal_CBF_claim"
+  ]
+}

@@ -5856,3 +5856,30 @@ large. Do not add exact rollout verification inside inference. A later, small
 task-level empirical run may test whether this inference-only selector reduces
 CAR without harming success, but it requires a separate explicit execution
 protocol and user authorization.
+
+## ADR-0192: Execute only nominal versus frozen compact minimum risk
+
+- Status: preregistered; allocation execution pending
+- Date: 2026-08-17
+
+At the user's explicit request, permit a small inference-only action-correction
+pilot without reopening collection or tuning.  Freeze the compact result/model
+hash, minimum-predicted-primary-risk rule, selected candidate identity, warning
+state, source config, and complete continuation before fresh execution.
+
+Use exactly four opened cases: Goal-II E39 and Long-II E46 represent the compact
+ranker's intended L6/palm improvement, while Spatial-I task-3 E15 and E42 retain
+the two known L5 failures.  For each case execute only nominal and the single
+frozen model-selected candidate from the identical snapshot.  Fresh outcomes
+are evaluation labels only and cannot select, reorder, reject, or replace the
+action.  This directly tests model-only inference; it is not top-five exact
+verification.
+
+Keep the released EE proxy diagnostic and use palm/L5/L6/L7 future risks, raw
+contacts, CAR, and registered terminal status as physical outcome authorities.
+Require exact producer/replay equality, no selected UNKNOWN, at least two safe
+selected branches, and at least a two-case safe-count improvement over nominal
+for a mechanism pass.  Even that pass does not authorize a safety claim because
+the cohort is opened and deliberately includes the known failures.  Report all
+persistent collisions and do not add QP, gradients, denoising, VLA requery, or
+full-episode claims.

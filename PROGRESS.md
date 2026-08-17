@@ -6279,3 +6279,29 @@ Result/validation file SHA-256 values are
 payload SHA-256 values are
 `18cbafbdcd8f19b99a3f734bdf6d1e4f96bbbef241e923e65c29d33a5ec76191`
 and `ab772de0a347ca798aa929b947710f1dc31b6206920cf987a2a63c1d190edaea`.
+
+## 2026-08-17: Compact inference-only paired execution pilot
+
+ADR-0192 freezes the first action-execution test of the compact 7D selector.
+It does not recollect a candidate bank or use an exact rollout verifier before
+execution.  On each registered warning state it executes only two branches from
+the identical restored snapshot: raw nominal pi0.5 and the already frozen
+minimum-predicted-risk candidate.  Released AEGIS EE-QP, learned QP, gradients,
+and denoising remain disabled; the unchanged OSC and complete registered
+continuation define the future-risk outcome.
+
+The four opened cases intentionally expose both sides of the known result:
+Goal-II E39 and Long-II E46 are the former L6/palm shared-model failures that
+the compact selector ranks to physically safe candidates, while Spatial-I
+task-3 E15 and E42 are the two remaining compact L5 failures.  All four nominal
+branches are physically unsafe in the immutable evidence.  Therefore this is a
+minimal paired mechanism reproduction, not a new generalization test.  It can
+show whether direct compact inference improves collision outcomes from `0/4`
+without hiding the known failures, but it cannot establish collision-free
+safety or full-episode task preservation.
+
+The implementation adds an opt-in two-name subset to the existing collector;
+the default 13/27-candidate paths are unchanged.  Focused local contract tests,
+Python compilation, shell syntax, and `git diff --check` pass.  The desktop full
+`./init.sh` still reaches all tests but fails only where the desktop Python lacks
+NumPy; allocation-backed focused tests remain required before interpretation.
