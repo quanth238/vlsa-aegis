@@ -6604,7 +6604,7 @@ H100 inference path and newly constructed post-clipping-symmetric probes.
 
 ### ADR-0207 directly test negative-gradient exact-risk feasibility
 
-- Status: preregistered; execution pending
+- Status: completed; local direction supported, collision avoidance NO-GO
 - Date: 2026-08-18
 
 Run the smallest simulator experiment that answers the unresolved mechanism.
@@ -6635,3 +6635,31 @@ independent replay, and H100 prediction agreement. Even a pass establishes
 only that the current critic supplies a locally useful direction. Because its
 unsafe trigger recall is only `66.7%`, it does not by itself authorize flow
 guidance or QP control.
+
+The first arrays `42550/42551` fail before simulation because SafeLIBERO's
+legacy PyTorch cannot execute on H100. Preserve them and dependency-impossible
+validator `42552` as apparatus history. The split-runtime repair changes no
+science: OpenPI's H100-compatible Python generates the exact gradient/action
+bytes, then SafeLIBERO's Python executes those bytes in the same allocation.
+
+Repaired producer `42559`, independent replay `42560`, and validator `42561`
+pass every apparatus gate with exact scientific equality. H100 predictions
+match the frozen critic within `4.75e-6`, action-pair symmetry error is at most
+`5.55e-17`, primitive certificates pass, saved-state restoration is exact, and
+represented-geometry physical false-safes are zero.
+
+The directional mechanism is real but insufficient. Negative gradient beats
+positive gradient and descends from the unsafe anchor on `5/6` probes
+(`83.3%`); median exact-risk change is `-0.00127263`. It beats equal-norm random
+on only `3/6`, and all six corrected risks remain positive, so safe conversion
+is `0/6`. The preregistered feasibility gate therefore fails solely on the
+required safe conversion.
+
+Conclude that ADR-0201 contains useful local ordering, but a single bounded
+gradient step is not an empirical collision-avoidance mechanism. Do not run
+flow guidance, a QP, or full episodes with this critic. A next method would need
+either iterative re-evaluation with a critic trained on its own correction
+distribution or a stronger action representation; that is a new experiment,
+not threshold tuning of ADR-0207. Validation file/payload SHA-256 values are
+`deb9d18f1f3f97ce52c8fcedee702505d8c380a3ae2649ecc1bd6822862d81fd` and
+`128fc2be7bb4933af8d73b38f1da66b3ac65d72dbe4bfef548a0ea17c433ceb6`.

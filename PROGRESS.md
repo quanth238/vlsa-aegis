@@ -7100,3 +7100,20 @@ apparatus-only repair computes the identical frozen float32 gradient in the
 H100-compatible OpenPI Python, writes immutable action definitions, then invokes
 the unchanged SafeLIBERO Python only to execute those definitions in the same
 allocation. It changes no anchor, radius, random seed, action, label, or gate.
+
+Repaired ADR-0207 producer `42559`, independent replay `42560`, and validator
+`42561` complete. The two replicas are scientifically identical, H100 critic
+predictions agree with the frozen record to `4.74798e-6`, source-state replay is
+exact, maximum action symmetry error is `5.55112e-17`, all primitive
+certificates pass, and physical false-safes are zero.
+
+The negative critic gradient lowers exact simulator risk on `5/6` unsafe
+anchors and is better than the positive direction on `5/6`; median risk change
+is `-0.00127263`. It beats equal-norm random on `3/6`. However, none of the six
+bounded corrections becomes exact-safe (`0/6` safe conversions), so the full
+preregistered feasibility gate is NO-GO. This separates the mechanisms cleanly:
+the critic has a useful local direction, but its present trigger and one-step
+authority cannot avoid collision. QP, flow guidance, and full-episode scaling
+remain unauthorized. Validation file/payload SHA-256 values are
+`deb9d18f1f3f97ce52c8fcedee702505d8c380a3ae2649ecc1bd6822862d81fd` and
+`128fc2be7bb4933af8d73b38f1da66b3ac65d72dbe4bfef548a0ea17c433ceb6`.
