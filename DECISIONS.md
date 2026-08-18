@@ -6546,3 +6546,44 @@ nominal-first inference with the temporal candidate family represented in the
 existing training data, or collect matched detour supervision and reserve new
 episodes for evaluation. The latter is a model/data change, not another frozen
 inference test.
+
+### ADR-0206 test whether the compact critic has a useful action gradient
+
+- Status: preregistered; execution pending
+- Date: 2026-08-18
+
+Before implementing a QP, late-flow guidance, another candidate family, or any
+new simulator rollout, test the single missing mechanism directly:
+
+\[
+-\nabla_A \widehat R(x,A)
+\quad\text{must order lower exact simulator risk.}
+\]
+
+Reuse only immutable ADR-0200 five-action labels and the frozen ADR-0201 model.
+At each nominal candidate, reconstruct every primary per-row gradient, map its
+five learned outward projections back to the exact effective 15D XYZ action
+coordinates, and form a beta-20 log-mean-exp gradient over tight palm/finger/L5
+rows. Compare that gradient with the six registered opposite-direction pairs
+from the trained front-loaded bank. A pair is eligible only if its effective
+post-clipping deltas remain symmetric to `1e-8`; clipped asymmetries and exact
+risk ties remain explicit rather than being silently treated as agreement.
+
+Validate the stored model reconstruction and autograd with centered finite
+differences before interpreting direction. Report unsafe trigger recall,
+directional agreement, true-risk descent, safe conversion, safety regression,
+median risk change, and contributing root count for train, validation, and the
+already-opened diagnostic test. Freeze all gates on validation only: unsafe
+recall at least `0.8`, direction accuracy at least `0.75`, descent rate at least
+`0.70`, at least eight symmetric pairs from two roots, at most one regression,
+and negative median risk change. These are feasibility thresholds, not formal
+guarantees.
+
+This is a support-scale secant audit, not yet the exact small-step simulator
+gradient experiment. A pass authorizes only a separately preregistered bounded
+`+/-` action-gradient development probe. It never authorizes flow guidance
+directly. A failure establishes that the current compact critic is not
+gradient-ready and requires an action representation that retains tangential
+components before further inference work. Run independent CPU replicas and a
+strict validator; perform no training, simulation, correction, QP, denoising,
+closed loop, or test-based tuning.

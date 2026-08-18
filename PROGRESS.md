@@ -7056,3 +7056,16 @@ Source-prep jobs `42158/42159` are apparatus history only: the fresh partial
 clone was canceled after a clean existing checkout was available, and the
 incremental prep's short-hash comparison failed after reaching the correct full
 commit. Neither ran simulation or changed the accepted producer source.
+
+ADR-0206 is now preregistered as the decisive zero-simulation gradient-readiness
+gate. It binds the immutable ADR-0200 24-state/312-candidate exact prefix labels,
+the independently validated ADR-0201 compact checkpoint, the frozen six
+opposite-direction candidate pairs, and validation-only feasibility thresholds.
+The audit reconstructs the critic on CPU, verifies autograd against centered
+finite differences, maps each per-row normal-only feature gradient into the
+effective five-action XYZ space, and compares its predicted descent direction
+with exact simulator-risk secants already stored in the dataset. No simulator
+rollout, training, QP, action execution, denoising, closed loop, or test-based
+tuning is part of this experiment. A pass can authorize only one separately
+frozen exact action-gradient development probe; a failure stops flow-guidance
+work with the current 7D representation.

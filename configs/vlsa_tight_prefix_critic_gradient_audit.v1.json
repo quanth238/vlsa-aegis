@@ -1,0 +1,70 @@
+{
+  "schema_version": "vlsa_tight_prefix_critic_gradient_audit.v1",
+  "protocol_id": "vlsa-tight-prefix-critic-gradient-audit-v1",
+  "claim_scope": "Zero-simulation feasibility audit of whether the frozen ADR-0201 compact critic gradient orders exact matched simulator-risk secants in the immutable ADR-0200 candidate population. This is a support-scale directional diagnostic, not a local derivative certificate, action correction, flow guidance, safety claim, or untouched test.",
+  "source": {
+    "training_config": "configs/vlsa_tight_prefix_risk_q_diagnostic.v1.json",
+    "training_config_file_sha256": "8c2c421b97b7c54a0a00da8658d08a9baa0196caa7a2d5956d5f982089e287f7",
+    "training_config_payload_sha256": "cab9264af27c23b003f0a4c0a9a44deb0be44c1d61f12a7e8c36002d16143bd1",
+    "training_result": "/mnt/data/quanth/experiments/vlsa-tight-prefix-risk-q/tight-prefix-risk-q-20260818a/producer.json",
+    "training_result_file_sha256": "ac025e3b93ee59a81d4b529178bc78b68da42269ef610fc02ff0a8a6a6a62d15",
+    "training_result_payload_sha256": "11185d43ad2f4c871e274727b3fa98768e160dd2ff5a8e69382aca4394eaea79",
+    "training_validation": "/mnt/data/quanth/experiments/vlsa-tight-prefix-risk-q/tight-prefix-risk-q-20260818a/validation.json",
+    "training_validation_file_sha256": "1bf793a4f497d004ce9a4542b2bc427407e7c9d30f331183d5f203a6792f5bda",
+    "training_validation_payload_sha256": "6a8aeed21494ce09c3129d77b9d001a0480de09a1e42b75677f11a86f5fa7ac0",
+    "model_sha256": "135a97ba840b3299f4e8cd74c2d7e76f6b5e5a0938a6af0379a5258a9aed2102"
+  },
+  "audit": {
+    "report_splits": ["train", "validation", "test"],
+    "decision_split": "validation",
+    "test_status": "already_opened_diagnostic",
+    "primary_rows": [0, 1, 2, 3, 4, 5, 6, 7],
+    "diagnostic_rows": [8, 9],
+    "optimized_action_dimensions": "five_effective_XYZ_actions_only",
+    "global_gradient": "beta20_logmeanexp_over_primary_row_predictions",
+    "smoothmax_beta": 20.0,
+    "normalized_feature_finite_difference_epsilon": 0.00001,
+    "finite_difference_maximum_absolute_error": 0.000001,
+    "stored_prediction_maximum_absolute_error": 0.00005,
+    "post_clipping_symmetry_maximum_absolute_error": 0.00000001,
+    "risk_tie_absolute_tolerance": 0.0000000001,
+    "gradient_score_tie_absolute_tolerance": 0.000000000001,
+    "candidate_pairs": [
+      ["grid_m1_m1_m1_front_loaded_r2.0", "grid_p1_p1_p1_front_loaded_r2.0"],
+      ["grid_m1_m1_z0_front_loaded_r2.0", "grid_p1_p1_z0_front_loaded_r2.0"],
+      ["grid_m1_z0_m1_front_loaded_r2.0", "grid_p1_z0_p1_front_loaded_r2.0"],
+      ["grid_m1_p1_z0_front_loaded_r2.0", "grid_p1_m1_z0_front_loaded_r2.0"],
+      ["grid_z0_m1_m1_front_loaded_r2.0", "grid_z0_p1_p1_front_loaded_r2.0"],
+      ["grid_z0_z0_m1_front_loaded_r2.0", "grid_z0_z0_p1_front_loaded_r2.0"]
+    ]
+  },
+  "feasibility_gate": {
+    "minimum_validation_unsafe_recall": 0.8,
+    "minimum_validation_direction_accuracy": 0.75,
+    "minimum_validation_descent_rate": 0.7,
+    "minimum_validation_eligible_pair_count": 8,
+    "minimum_validation_contributing_root_count": 2,
+    "maximum_validation_safe_to_unsafe_regressions": 1,
+    "require_negative_validation_median_true_risk_change": true,
+    "require_autograd_finite_difference_pass": true,
+    "interpretation": "engineering feasibility gate only, not a theoretical guarantee"
+  },
+  "structural_audit": {
+    "per_row_action_dimension": 15,
+    "per_row_represented_normal_coordinates": 5,
+    "per_row_unrepresented_tangent_dimensions": 10,
+    "warning": "A global smooth maximum can combine row normals, but one active row cannot express either tangent direction at any action step."
+  },
+  "forbidden": [
+    "new_simulator_rollout",
+    "new_data_collection",
+    "model_retraining",
+    "validation_or_test_normalization",
+    "test_based_gate_or_hyperparameter_selection",
+    "QP",
+    "action_execution",
+    "denoising_or_flow_guidance",
+    "closed_loop",
+    "formal_safety_or_CBF_claim"
+  ]
+}
