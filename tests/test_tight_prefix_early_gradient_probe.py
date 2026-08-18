@@ -78,6 +78,19 @@ class TightPrefixEarlyGradientProbeTests(unittest.TestCase):
         self.assertEqual(record["requested_alpha"], 0.0)
         self.assertEqual(record["requested_correction_l2_action"], 0.0)
 
+    def test_video_comparisons_bind_one_gradient_win_and_loss(self) -> None:
+        from scripts.render_tight_prefix_early_gradient_comparisons import (
+            comparison_specs,
+        )
+
+        result = comparison_specs({
+            "gradient_down": -0.114290,
+            "matched_random_1": -0.115462,
+            "matched_random_3": -0.110182,
+        })
+        self.assertEqual(result[0]["winner"], "gradient_down")
+        self.assertEqual(result[1]["winner"], "matched_random_1")
+
 
 if __name__ == "__main__":
     unittest.main()
