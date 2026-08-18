@@ -6740,3 +6740,9 @@ flow/denoising, test use, closed loop, and formal claims. If the gate fails or
 has no eligible root, stop this frozen-critic guidance line rather than repeat
 timing search. A pass confirms only local earlier-query gradient feasibility
 and still requires a separately designed control experiment.
+
+Initial prep arrays `42612/42613` are pre-probe apparatus history. Both replicas
+replay the fixed E39 and E44 nominals, then fail at the exact-replay receipt
+boundary because the new nominal-only adapter omitted the legacy zero-valued
+`requested_alpha` alias. Restore only that alias. Preserve the partial roots,
+use a new immutable run root, and keep every ADR-0209 scientific setting fixed.

@@ -22,6 +22,9 @@ def _nominal_only(nominal: Any, _frame: Any, _config: Any) -> list[dict[str, Any
     _require(actions.shape == (5, 7), "early gradient nominal shape differs")
     return [{
         "name": "nominal", "order": 0,
+        # Legacy exact-replay adapters require this alias even for the zero
+        # correction arm.  It does not change the action or protocol.
+        "requested_alpha": 0.0,
         "requested_correction_l2_action": 0.0,
         "applied_correction_l2_action": 0.0,
         "actions": actions.tolist(),

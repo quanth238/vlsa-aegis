@@ -70,6 +70,14 @@ class TightPrefixEarlyGradientProbeTests(unittest.TestCase):
         })
         self.assertFalse(verdict["early_bounded_gradient_hypothesis_confirmed"])
 
+    def test_nominal_prep_retains_legacy_zero_alpha_alias(self) -> None:
+        import numpy as np
+        from scripts.prepare_tight_prefix_early_gradient_probe import _nominal_only
+
+        record = _nominal_only(np.zeros((5, 7)), {}, {})[0]
+        self.assertEqual(record["requested_alpha"], 0.0)
+        self.assertEqual(record["requested_correction_l2_action"], 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

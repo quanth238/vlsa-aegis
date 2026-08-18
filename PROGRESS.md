@@ -7179,3 +7179,11 @@ the current frozen-critic early-guidance hypothesis rather than selecting
 another time, enlarging the radius, or retraining on these roots. Even a pass
 is local mechanism evidence only and does not authorize deployment, a full
 episode, or a safety/CBF claim.
+
+Initial paired prep arrays `42612/42613` replay both fixed nominals through
+candidate simulation, then fail before writing validation-ready prep artifacts
+because the nominal candidate receipt omitted the legacy zero-valued
+`requested_alpha` alias required by the exact-replay adapter. This is pre-probe
+apparatus history: the states, nominal actions, geometry, model, and gates are
+unchanged. Add only that zero alias and restart from a new immutable root; do
+not reuse partial runtime directories or alter ADR-0209 science.
