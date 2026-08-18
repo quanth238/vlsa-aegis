@@ -11,7 +11,6 @@ import time
 from typing import Any, Mapping, Optional, Sequence
 
 from main.multilink_ellipsoid.tight_prefix_full_episode import (
-    CASE_ID,
     canonical,
     file_sha256,
     payload_sha256,
@@ -243,6 +242,7 @@ def evaluate(
 
     started = time.perf_counter_ns()
     config = load_config(config_path)
+    case_id = str(config["case_id"])
     _require(replica in ("producer", "replay"),
              "nominal-first full-episode replica differs")
     _require(
@@ -265,7 +265,7 @@ def evaluate(
     )
     matches = [
         row for row in read_jsonl(manifest_path)
-        if row.get("case_id") == CASE_ID
+        if row.get("case_id") == case_id
     ]
     _require(len(matches) == 1,
              "nominal-first manifest case differs")
@@ -317,7 +317,7 @@ def evaluate(
         "source": source,
         "allocation": allocation,
         "config": config,
-        "case_id": CASE_ID,
+        "case_id": case_id,
         "pairing": pairing,
         "pairing_sha256": hashlib.sha256(canonical(pairing)).hexdigest(),
         "policy_server": server_identity,

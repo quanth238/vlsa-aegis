@@ -6508,3 +6508,23 @@ supported control principle. For a zero-retraining test, change only the
 selection objective while retaining the trained temporal family. To claim the
 detour family, preregister matched detour labels/training and an untouched
 evaluation. Do not scale ADR-0204 or add QP/denoising from this result.
+
+### ADR-0205 freeze one second-scene E42 transfer diagnostic
+
+- Status: preregistered; execution pending
+- Date: 2026-08-18
+
+At the user's explicit request, run the completely frozen ADR-0204 method in
+one additional scene. Select Spatial-I task-3 E42 from pre-ADR-0204 evidence:
+it is the only other compact-critic L5 failure, and its immutable raw pi0.5
+archive reaches native task success. This prevents choosing a favorable scene
+after observing the E15 detour failure.
+
+Change only the case-bound geometry and raw pi0.5 archives. Keep the warning
+threshold, empirical margin, 13 endpoint-preserving detours, temporal profile,
+nominal-first/minimum-intervention selection, critic/model, OSC, seeds,
+five-action requery cadence, timeout, contact groups, and CAR test fixed. Run
+no candidate simulator lookahead, retraining, recollection, QP, or denoising.
+Require an exact CPU action replay and report both physical collision and native
+task success. Because E42 is already opened and ADR-0204 already failed, this
+is a transfer diagnostic only and cannot rescue or scale the method claim.

@@ -15,6 +15,9 @@ from main.multilink_ellipsoid.tight_prefix_full_episode import (
     scientific_view,
 )
 
+TRANSFER_CASE_ID = "vlsa-t1-spatial-i-t3-e42"
+ALLOWED_CASE_IDS = (CASE_ID, TRANSFER_CASE_ID)
+
 
 CONFIG_SCHEMA = "vlsa_tight_prefix_nominal_first_full_episode.v1"
 RESULT_SCHEMA = "vlsa_tight_prefix_nominal_first_full_episode_result.v1"
@@ -146,7 +149,7 @@ def load_config(path: Path) -> dict[str, Any]:
         value.get("schema_version") != CONFIG_SCHEMA
         or value.get("protocol_id")
         != "vlsa-tight-prefix-nominal-first-full-episode-v1"
-        or value.get("case_id") != CASE_ID
+        or value.get("case_id") not in ALLOWED_CASE_IDS
     ):
         raise ValueError("nominal-first full-episode protocol differs")
     method = value["method"]

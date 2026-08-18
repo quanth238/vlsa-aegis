@@ -15,6 +15,9 @@ from main.multilink_ellipsoid.tight_prefix_nominal_first_full_episode import (
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "configs/vlsa_tight_prefix_nominal_first_full_episode.v1.json"
+TRANSFER_CONFIG = ROOT / (
+    "configs/vlsa_tight_prefix_nominal_first_full_episode_e42.v1.json"
+)
 
 
 class TightPrefixNominalFirstFullEpisodeTest(unittest.TestCase):
@@ -29,6 +32,22 @@ class TightPrefixNominalFirstFullEpisodeTest(unittest.TestCase):
         self.assertEqual(method["candidate_names"], list(DETOUR_CANDIDATE_NAMES))
         self.assertFalse(config["forbidden"]["model_training"])
         self.assertFalse(config["forbidden"]["data_collection"])
+
+    def test_transfer_config_changes_only_case_sources(self):
+        original = load_config(CONFIG)
+        transfer = load_config(TRANSFER_CONFIG)
+        self.assertEqual(transfer["case_id"], "vlsa-t1-spatial-i-t3-e42")
+        self.assertEqual(transfer["method"], original["method"])
+        self.assertEqual(transfer["controller"], original["controller"])
+        self.assertEqual(transfer["termination"], original["termination"])
+        self.assertEqual(
+            transfer["source"]["model_sha256"],
+            original["source"]["model_sha256"],
+        )
+        self.assertNotEqual(
+            transfer["source"]["raw_pi05_archive"],
+            original["source"]["raw_pi05_archive"],
+        )
 
     def test_detours_are_bounded_and_endpoint_preserving(self):
         try:

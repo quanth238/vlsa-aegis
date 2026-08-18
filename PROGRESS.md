@@ -7008,3 +7008,20 @@ frozen matched supervision and untouched evaluation. Validation/video SHA-256
 values are
 `7dffe6fb60f177843b66c03ad421ffdbf929532daef9d6c39cbecbc0e82d88d9` and
 `867b848586894926b233dadf018466a1674156822a999d54a7516b03999e84cc`.
+
+ADR-0205 preregisters exactly one second-scene transfer diagnostic on Spatial-I
+task-3 E42. E42 was identified before ADR-0204 as the only other compact-critic
+L5 failure and its immutable raw pi0.5 episode is task-successful, so the case
+is not selected from the E15 detour outcome. The complete ADR-0204 inference
+rule remains fixed: normalized tight-row warning `<1.0`, critic invocation only
+inside the warning, the same 13 detour names and temporal profile, the same
+validation-frozen margin, nominal-first minimum intervention, unchanged OSC,
+five-action replanning, and identical termination/contact/CAR authorities.
+
+Only the config-bound case identity and its immutable E42 AEGIS-geometry/raw
+pi0.5 archives change. There is no threshold tuning, candidate rollout,
+training, recollection, QP, or denoising. This already-opened transfer check can
+only show whether the frozen behavior repeats in another scene; ADR-0204
+remains a method NO-GO even if E42 succeeds. Require one H100 producer, one CPU
+exact-action replay, and strict scientific-view validation before reporting
+collision-free native task success.
