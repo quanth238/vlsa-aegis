@@ -38,6 +38,7 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ "$(sha256sum "$RESULT" | awk '{print $1}')" == "$EXPECTED_RESULT_SHA256" ]] || die "gradient video result differs"
 [[ "$(sha256sum "$VALIDATION" | awk '{print $1}')" == "$EXPECTED_VALIDATION_SHA256" ]] || die "gradient video validation differs"
 
+mkdir -p "$(dirname "$OUTPUT_ROOT")"
 export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 export MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa
 export IMAGEIO_FFMPEG_EXE=${IMAGEIO_FFMPEG_EXE:-/mnt/data/quanth/venvs/safety_vla/main/lib/python3.8/site-packages/imageio_ffmpeg/binaries/ffmpeg-linux64-v4.2.2}
