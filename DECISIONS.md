@@ -6796,3 +6796,28 @@ two roots with tangent descent of at least `0.01` before authorizing a 17D
 obstacle-frame action ablation. This gate tests representation only; it forbids
 training, policy queries, QP, candidate selection for control, continuation,
 test access, flow guidance, closed loop, and safety claims.
+
+### ADR-0210 result: reject 7D action observability and authorize 17D ablation
+
+- Status: validated representation NO-GO / ablation GO
+- Date: 2026-08-19
+
+Producer array `42638`, independent replay array `42639`, and validator `42642`
+completed from immutable commit `2562b7098243e597f5d7c520b504e18628eb980c`.
+All four frozen validation roots reproduced exactly, pair symmetry error was
+zero, and represented-geometry physical false-safes were zero. The active-row
+7D feature was tangent-invariant in every root, yet every root exhibited an
+absolute tangential future-risk change of at least `0.01894`. E44, E05, and E09
+also had a tangential descent of `0.01943`, `0.05833`, and `0.02483`,
+respectively; E39's best tangent descent was only `0.00334` although its
+opposite tangent materially increased risk.
+
+This rejects the current 7D feature as action-observable enough for directional
+guidance. It does not reject the controller-conditioned future-risk target or
+learned classifier-style guidance. Authorize only the matched 7D-versus-17D
+representation ablation next; do not change data, target, split, optimizer, or
+guidance rule simultaneously. The validated artifact is
+`/mnt/data/quanth/experiments/vlsa-tight-prefix-action-observability/tight-prefix-action-observability-20260819a/validation.json`.
+Its file and payload SHA-256 values are
+`183ef39fd9b3f2e130759f396841e07b445e78869fed3df89c6efb61f8ff3f28` and
+`e72196b26a58f8f5d7826d574a054406f177222f62bddb4f07f1e17d06697638`.

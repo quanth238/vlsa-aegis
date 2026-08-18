@@ -7238,3 +7238,19 @@ feature changes by at most `1e-10`. Authorize the matched 7D/17D representation
 ablation only if at least one counterexample exists and at least two validation
 roots have a material tangent descent of at least `0.01`. Otherwise do not
 assume missing tangent coordinates caused ADR-0209.
+
+ADR-0210 jobs `42638`, `42639`, and `42642` completed the four-root symmetric
+action audit from commit `2562b7098243e597f5d7c520b504e18628eb980c`.
+Independent scientific views match exactly, action-pair symmetry error is zero,
+and the physical false-safe count is zero. All four roots are structural
+counterexamples: their active-row 7D feature is unchanged by tangential actions,
+while exact tangential risk changes by `0.01894` (E39), `0.01943` (E44),
+`0.05927` (E05), and `0.02492` (E09). Three roots pass the preregistered
+material-descent threshold: E44 `-0.01943`, E05 `-0.05833`, and E09 `-0.02483`.
+
+The apparatus gate passes, the 7D action-observability hypothesis is rejected,
+and the matched 17D obstacle-frame action ablation is authorized. No training,
+policy query, continuation, QP, denoising, test access, or full episode occurred.
+Validation file/payload SHA-256 values are
+`183ef39fd9b3f2e130759f396841e07b445e78869fed3df89c6efb61f8ff3f28` and
+`e72196b26a58f8f5d7826d574a054406f177222f62bddb4f07f1e17d06697638`.
