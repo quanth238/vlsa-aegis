@@ -6710,7 +6710,7 @@ and `b54e8312e5c4ebf3c6c88fb514472ae640b34202cb36e549f446402c280b25d6`.
 
 ### ADR-0209 test the unchanged critic exactly one VLA query earlier
 
-- Status: preregistered; execution pending
+- Status: completed; local descent passes, random advantage NO-GO
 - Date: 2026-08-18
 
 Use the same already-opened E39/E44 validation roots and move exactly one
@@ -6746,3 +6746,25 @@ replay the fixed E39 and E44 nominals, then fail at the exact-replay receipt
 boundary because the new nominal-only adapter omitted the legacy zero-valued
 `requested_alpha` alias. Restore only that alias. Preserve the partial roots,
 use a new immutable run root, and keep every ADR-0209 scientific setting fixed.
+
+Repaired prep `42621/42622`, H100 probes `42623/42624`, and validator `42625`
+pass every apparatus gate with exact independent scientific views. E39 is the
+only eligible root. Its nominal is exact-safe at primary risk `-0.104427` but
+the frozen critic warning fires at `+0.116750`. Negative-gradient guidance is
+also safe, descends to `-0.114290`, and beats the positive-gradient result
+`-0.094090`. E44 is safely outside the warning region and receives no probe.
+
+Reject the current frozen critic as a confirmed early guidance mechanism. Its
+E39 direction beats only two of four equal-norm random directions (50%, versus
+the frozen 75% requirement); two random directions achieve still lower exact
+risk. This is not a failure of local controllability: every E39 probe is safe
+and earlier intervention restores support. It is specifically a failure to
+show that the learned gradient is more informative than random steering.
+
+Do not select another earlier query, change the margin/radius, retrain on these
+opened roots, add QP/flow guidance, or launch a full episode. The result closes
+the current inference-only hypothesis cleanly. A future learned-guidance method
+would require independent state coverage that demonstrates directional
+advantage, not another post hoc test on E39/E44. Validation file/payload SHA-256
+values are `6b128faa01089f71ec3b96183aef6a628e225f5238e52f63d38e13df1c06bb06`
+and `8af4b777aaf58ad2ca1b3b12978c090b574bddae8ea92ee889717d529f7fe522`.

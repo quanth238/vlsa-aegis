@@ -7187,3 +7187,28 @@ because the nominal candidate receipt omitted the legacy zero-valued
 apparatus history: the states, nominal actions, geometry, model, and gates are
 unchanged. Add only that zero alias and restart from a new immutable root; do
 not reuse partial runtime directories or alter ADR-0209 science.
+
+Repaired paired prep arrays `42621/42622`, H100 probe arrays `42623/42624`,
+and validator `42625` complete ADR-0209 from immutable commit `b4b9efe` with
+exact independent prep/probe scientific views. Frozen predictions match within
+`9.32e-7`, action symmetry/equal-norm error is at most `5.55e-17`, saved-state
+restoration and primitive certificates pass, and represented-geometry physical
+false-safes are zero.
+
+Both earlier nominals are exact-safe. E39 is the single eligible warning state:
+its nominal exact primary risk is `-0.104427` while the critic predicts
+`+0.116750`. Negative-gradient execution remains exact-safe, lowers risk to
+`-0.114290` (change `-0.009863`), and beats the positive direction
+`-0.094090`. However, it beats only `2/4` equal-norm random directions; two
+random probes reach lower exact risk (`-0.115462` and `-0.114613`). E44 is far
+safe (`-0.691193` exact, `-0.706443` predicted) and correctly does not trigger,
+so no E44 probe rollout occurs.
+
+The preregistered 75% random-advantage check therefore fails at 50%. ADR-0209
+is a clean scientific NO-GO for claiming that the current frozen critic gives
+a superior early bounded guidance direction. It does confirm local descent and
+safe support at the earlier query, but not critic-specific advantage over
+random steering. Stop timing sweeps, full-episode guidance, QP, and retraining
+from these opened roots. Validation file/payload SHA-256 values are
+`6b128faa01089f71ec3b96183aef6a628e225f5238e52f63d38e13df1c06bb06` and
+`8af4b777aaf58ad2ca1b3b12978c090b574bddae8ea92ee889717d529f7fe522`.
