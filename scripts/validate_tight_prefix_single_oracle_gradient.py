@@ -38,7 +38,8 @@ def _maximum_numeric_difference(left: Any, right: Any) -> float:
 
 def validate(
     *, repo_root: Path, config_path: Path, producer_path: Path,
-    replay_path: Path, expected_commit: str, accepted_commit: str,
+    replay_path: Path, expected_commit: str, accepted_producer_commit: str,
+    accepted_replay_commit: str,
 ) -> dict[str, Any]:
     from main.multilink_ellipsoid.tight_prefix_single_oracle_gradient import (
         RESULT_SCHEMA, VALIDATION_SCHEMA, file_sha256, load_config,
@@ -58,8 +59,10 @@ def validate(
         "replay_status": replay.get("status") == "complete_single_oracle_gradient",
         "producer_replica": producer.get("replica") == "producer",
         "replay_replica": replay.get("replica") == "replay",
-        "producer_source": producer.get("source", {}).get("commit") == accepted_commit,
-        "replay_source": replay.get("source", {}).get("commit") == accepted_commit,
+        "producer_source": producer.get("source", {}).get("commit")
+        == accepted_producer_commit,
+        "replay_source": replay.get("source", {}).get("commit")
+        == accepted_replay_commit,
         "producer_payload": producer.get("result_payload_sha256")
         == payload_sha256(producer, "result_payload_sha256"),
         "replay_payload": replay.get("result_payload_sha256")
@@ -108,7 +111,8 @@ def validate(
         "status": status,
         "scientific_result": exact_replay,
         "source": _git_identity(repo_root, expected_commit),
-        "accepted_experiment_commit": accepted_commit,
+        "accepted_producer_commit": accepted_producer_commit,
+        "accepted_replay_commit": accepted_replay_commit,
         "config_file_sha256": config["config_file_sha256"],
         "config_payload_sha256": config["config_payload_sha256"],
         "producer": {
@@ -147,13 +151,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--producer", type=Path, required=True)
     parser.add_argument("--replay", type=Path, required=True)
     parser.add_argument("--expected-commit", required=True)
-    parser.add_argument("--accepted-commit", required=True)
+    parser.add_argument("--accepted-producer-commit", required=True)
+    parser.add_argument("--accepted-replay-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     result = validate(
         repo_root=args.repo_root.resolve(), config_path=args.config.resolve(),
         producer_path=args.producer.resolve(), replay_path=args.replay.resolve(),
-        expected_commit=args.expected_commit, accepted_commit=args.accepted_commit,
+        expected_commit=args.expected_commit,
+        accepted_producer_commit=args.accepted_producer_commit,
+        accepted_replay_commit=args.accepted_replay_commit,
     )
     _atomic_write(args.output.resolve(), result)
     print(json.dumps({

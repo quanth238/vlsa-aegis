@@ -7415,3 +7415,10 @@ the shared result writer invoked the H100-only allocation recorder on a CPU
 node. This is post-simulation apparatus history. Repair only replay provenance
 to use the existing strict CPU Slurm recorder, then rerun the same producer
 bundle under a new replay root.
+
+Corrected CPU replay `42778` completes and independently reports the identical
+decision. Because the producer is bound to scientific commit `a69dfb1` while
+the provenance-only replay repair is commit `a7c4d7a`, update the CPU validator
+to bind producer and replay commits separately. This is read-only validation;
+do not rerun simulation or require the two apparatus revisions to share one
+commit identifier.

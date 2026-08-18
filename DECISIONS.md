@@ -6995,3 +6995,9 @@ apparatus history only: it used the frozen producer arrays but failed while
 writing allocation metadata because the result path called the H100 recorder.
 Switch only replay metadata to the established strict CPU allocation recorder;
 do not regenerate actions or modify any scientific field.
+
+Replay `42778` writes the complete exact-action artifact and agrees on the
+oracle-local NO-GO. The final validator must bind producer commit `a69dfb1` and
+replay commit `a7c4d7a` as separate immutable roles; scientific-view equality
+already excludes source/allocation provenance. Repair only this binding API and
+perform no further rollout.
