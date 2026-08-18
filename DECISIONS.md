@@ -6821,3 +6821,37 @@ guidance rule simultaneously. The validated artifact is
 Its file and payload SHA-256 values are
 `183ef39fd9b3f2e130759f396841e07b445e78869fed3df89c6efb61f8ff3f28` and
 `e72196b26a58f8f5d7826d574a054406f177222f62bddb4f07f1e17d06697638`.
+
+### ADR-0211 isolate 17D representation before full-episode guidance
+
+- Status: preregistered
+- Date: 2026-08-19
+
+Run the full learned-guidance question as dependent gates rather than jumping
+directly to a full episode. First fit matched shared per-row critics on the
+immutable ADR-0200 train population. The compact arm remains exactly
+`[h, nominal_first_normal, five_effective_normal]`. The 17D arm changes only
+the five effective action encodings to deterministic compiled-obstacle-frame
+`[normal,tangent1,tangent2]` coordinates. Preserve the same targets, eligible
+states, train-only balancing/normalization, 32x32 SiLU architecture, Huber
+loss, optimizer, 2,000 epochs, fixed seed, and final checkpoint. Do not access
+the already-opened diagnostic test population for this decision and do not add
+directional loss.
+
+Choose tangent1 as the compiled-box rotation axis having the largest projected
+norm in the normal plane, breaking ties by the lowest axis index; set tangent2
+to normal cross tangent1. This is deterministic and preserves every scalar
+normal coordinate of the 7D representation exactly. Evaluate validation
+future-risk error, false-safes, within-state primary-risk pair ranking, and the
+ADR-0210 exact normal/tangent finite-difference slopes. Authorize a new exact
+gradient probe only if 17D improves validation pairwise rank by at least 0.02,
+keeps near-boundary RMSE within 1.10x and false-safes no higher than 7D, reaches
+at least 0.75 tangent-slope sign accuracy, and lowers tangent-slope RMSE.
+
+Only after exact independent H100 retraining passes this gate may a separately
+frozen equal-norm gradient-versus-random simulator probe run. Only if that
+probe demonstrates true-risk descent and random advantage may paired
+full-episode inference run at every VLA query. The full-episode endpoint must
+report raw contacts/CAR, native task success, collision-free task success,
+intervention norm/count, timeout, and runtime. No later gate can pass before
+its dependency; a failure stops rather than being tuned on validation.

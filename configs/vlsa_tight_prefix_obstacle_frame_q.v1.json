@@ -1,0 +1,86 @@
+{
+  "schema_version": "vlsa_tight_prefix_obstacle_frame_q.v1",
+  "protocol_id": "vlsa-tight-prefix-obstacle-frame-q-v1",
+  "claim_scope": "Matched validation-only comparison of the frozen compact 7D action representation against a minimal 17D compiled-obstacle-frame representation for the same shared per-row five-action future-risk critic. This isolates action observability; it is not correction, full-episode, deployment, untouched-test, formal-safety, or CBF evidence.",
+  "source": {
+    "baseline_training_config": "configs/vlsa_tight_prefix_risk_q_diagnostic.v1.json",
+    "baseline_training_config_file_sha256": "8c2c421b97b7c54a0a00da8658d08a9baa0196caa7a2d5956d5f982089e287f7",
+    "baseline_training_config_payload_sha256": "cab9264af27c23b003f0a4c0a9a44deb0be44c1d61f12a7e8c36002d16143bd1",
+    "action_observability_config": "configs/vlsa_tight_prefix_action_observability.v1.json",
+    "action_observability_config_file_sha256": "f00d82721008f02a528ec4ddb55fdc7fa0aa8dc917b32f214e1da6f1f1ed77c3",
+    "action_observability_config_payload_sha256": "4cd8300c9baae1a7b561a1bc9cdf932447a8c46f09a7e2c6dc91aaa09cdebd7d",
+    "action_observability_producer_dir": "/mnt/data/quanth/experiments/vlsa-tight-prefix-action-observability/tight-prefix-action-observability-20260819a/producer",
+    "action_observability_validation": "/mnt/data/quanth/experiments/vlsa-tight-prefix-action-observability/tight-prefix-action-observability-20260819a/validation.json",
+    "action_observability_validation_file_sha256": "183ef39fd9b3f2e130759f396841e07b445e78869fed3df89c6efb61f8ff3f28",
+    "action_observability_validation_payload_sha256": "e72196b26a58f8f5d7826d574a054406f177222f62bddb4f07f1e17d06697638"
+  },
+  "dataset": {
+    "fit_splits": ["train"],
+    "evaluation_splits": ["train", "validation"],
+    "exclude_initially_unsafe_from_fit": true,
+    "test_access": false
+  },
+  "representations": {
+    "compact_7D": {
+      "input_dimension": 7,
+      "definition": "[initial_exact_radial_slack,nominal_first_step_outward_projection,five_effective_step_outward_projections]"
+    },
+    "obstacle_frame_17D": {
+      "input_dimension": 17,
+      "definition": "[initial_exact_radial_slack,nominal_first_step_outward_projection,five_effective_step_normal_tangent1_tangent2_projections]"
+    },
+    "translation_scale_m_per_action_unit": 0.05,
+    "model_rows": [0,1,2,3,4,5,6,7,8,9],
+    "primary_rows": [0,1,2,3,4,5,6,7],
+    "diagnostic_rows": [8,9]
+  },
+  "frame": {
+    "normal": "robot_center_minus_closest_compiled_box_center",
+    "tangent1": "largest_norm_compiled_box_axis_projection_onto_normal_plane_lowest_index_tie_break",
+    "tangent2": "normal_cross_tangent1",
+    "normalization": "ellipsoid_support_radius_along_normal",
+    "orientation_source": "compiled_box_rotation"
+  },
+  "model": {
+    "hidden_widths": [32,32],
+    "activation": "silu",
+    "seed": 20260814,
+    "cpu_threads": 8,
+    "epochs": 2000,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "gradient_clip_norm": 10.0,
+    "huber_beta_normalized": 0.25,
+    "boundary_scale": 0.05,
+    "boundary_weight_multiplier": 4.0,
+    "minimum_target_scale": 0.01,
+    "normalization": "train_only_state_constraint_balanced",
+    "checkpoint": "fixed_final_epoch_no_selection"
+  },
+  "evaluation": {
+    "near_boundary_abs_risk": 0.05,
+    "same_state_pairwise_rows": [0,1,2,3,4,5,6,7],
+    "finite_difference_directions": ["normal","tangent_up","tangent_side"],
+    "decision_split": "validation"
+  },
+  "gate": {
+    "minimum_validation_pairwise_rank_improvement": 0.02,
+    "minimum_17D_tangent_slope_sign_accuracy": 0.75,
+    "maximum_validation_near_boundary_RMSE_ratio": 1.1,
+    "require_17D_tangent_slope_RMSE_below_7D": true,
+    "require_17D_validation_false_safes_no_more_than_7D": true
+  },
+  "forbidden": [
+    "new_simulator_rollout",
+    "policy_query",
+    "test_split_access",
+    "directional_loss",
+    "model_architecture_or_optimizer_change",
+    "validation_checkpoint_selection",
+    "action_correction",
+    "QP",
+    "denoising",
+    "full_episode",
+    "formal_safety_or_CBF_claim"
+  ]
+}

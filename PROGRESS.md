@@ -7254,3 +7254,22 @@ policy query, continuation, QP, denoising, test access, or full episode occurred
 Validation file/payload SHA-256 values are
 `183ef39fd9b3f2e130759f396841e07b445e78869fed3df89c6efb61f8ff3f28` and
 `e72196b26a58f8f5d7826d574a054406f177222f62bddb4f07f1e17d06697638`.
+
+ADR-0211 preregisters the requested path to a true full-episode every-query
+test without conflating failures. Stage 1 is a zero-simulation matched 7D/17D
+critic fit on the immutable ADR-0200 train/validation artifacts. The 17D input
+retains the exact 7D slack and nominal-normal scalars and the exact five normal
+action coordinates, adding only two deterministic compiled-box-relative
+tangent coordinates per effective action. Model, target, data, split,
+normalization, loss, optimizer, seed, and epochs remain identical. Test
+artifacts and directional loss are forbidden.
+
+The Stage-1 validation decision requires a >=0.02 gain in within-state
+primary-risk pairwise rank accuracy, <=1.10 near-boundary RMSE ratio, no
+increase in validation false-safes, >=0.75 tangent finite-difference sign
+accuracy, lower tangent-slope RMSE, and exact independent H100 reproduction.
+Only a pass authorizes Stage 2 exact equal-norm gradient-versus-random
+execution. Only a Stage-2 true-risk descent/random-advantage pass authorizes
+Stage 3 paired full episodes with the frozen 17D critic scored at every VLA
+query. Stage 3 must jointly measure collision reduction and native task
+success; it cannot be authorized from scalar RMSE alone.
