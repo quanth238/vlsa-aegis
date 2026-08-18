@@ -7282,3 +7282,20 @@ dependency-impossible apparatus history. Change only the Slurm preflight to
 the repository's established unittest-discovery form and use a new immutable
 run root; all data, representations, model settings, and scientific gates stay
 frozen.
+
+Replacement H100 trainers `42670/42671` and validator `42672` complete ADR-0211
+with exact independent reproduction and no simulator rollout, policy query,
+test access, directional loss, or correction. The 17D arm slightly improves
+validation near-boundary RMSE (`0.135984` versus 7D `0.142140`) and provides
+safe support in all four validation states, but it does not improve the action
+field needed for guidance. Primary within-state pairwise rank falls from
+`0.721154` to `0.705128`, false-safes rise from two to four, tangent-slope sign
+accuracy is only `2/8 = 0.25`, and tangent-slope RMSE worsens from `0.128457`
+to `0.150949`. Every preregistered guidance-authorization check except the
+near-boundary RMSE ratio fails.
+
+Stage 1 is therefore a scientific NO-GO. The exact gradient probe and paired
+full-episode every-query guidance were not run and remain unauthorized; doing
+so would not test a viable steering signal. Validation file/payload SHA-256
+values are `656bbedd1a629bf6c98b739c436b27ef54aca8885a018141c93755f905899174`
+and `b56abdf6e3823b5a1b4a9f42a24d54ca73a10942efc44349ff444d30077936ff`.

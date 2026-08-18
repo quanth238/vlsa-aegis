@@ -6855,3 +6855,36 @@ full-episode inference run at every VLA query. The full-episode endpoint must
 report raw contacts/CAR, native task success, collision-free task success,
 intervention norm/count, timeout, and runtime. No later gate can pass before
 its dependency; a failure stops rather than being tuned on validation.
+
+### ADR-0211 result: 17D representation alone is a scientific NO-GO
+
+- Status: completed; exact-gradient and full-episode gates blocked
+- Date: 2026-08-19
+
+After pre-fit apparatus-only jobs `42665/42666`, clean H100 trainers
+`42670/42671` and validator `42672` reproduce both models and all metrics
+exactly. The compact model hash remains the established
+`135a97ba840b3299f4e8cd74c2d7e76f6b5e5a0938a6af0379a5258a9aed2102`;
+the 17D model hash is
+`a8276fa8c9d5dec95e4fb4592d758f13088ecd2b86d3a88b7e8d1fb086daaed0`.
+
+The 17D arm improves validation near-boundary RMSE from `0.142140` to
+`0.135984`, but fails every directional/control gate. Within-state primary
+pairwise ranking decreases from `0.721154` to `0.705128`; validation
+false-safes increase from two to four. On the eight exact ADR-0210 tangent
+finite differences, sign accuracy is only `0.25` and slope RMSE worsens from
+the 7D zero-tangent baseline's `0.128457` to `0.150949`. In particular, the
+17D tangent-up sign is wrong on all four validation roots.
+
+Therefore added tangent coordinates alone do not produce a trustworthy risk
+gradient. Do not execute a learned-gradient probe or a full episode: both were
+explicitly dependent on this gate and would exercise an already-rejected
+signal. This rejects only the minimal representation repair, not the future
+risk target. The next distinct hypothesis, if pursued, is missing
+controller/state conditioning or matched directional supervision, and it must
+be preregistered without tuning on these validation roots. The validation
+artifact is
+`/mnt/data/quanth/experiments/vlsa-tight-prefix-obstacle-frame-q/obstacle-frame-q-20260819b/validation.json`;
+file/payload SHA-256 values are
+`656bbedd1a629bf6c98b739c436b27ef54aca8885a018141c93755f905899174` and
+`b56abdf6e3823b5a1b4a9f42a24d54ca73a10942efc44349ff444d30077936ff`.
