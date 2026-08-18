@@ -1,0 +1,81 @@
+{
+  "schema_version": "vlsa_tight_prefix_gradient_probe.v1",
+  "protocol_id": "vlsa-tight-prefix-gradient-probe-v1",
+  "claim_scope": "Small matched simulator feasibility test of whether the negative frozen ADR-0201 compact-critic gradient lowers exact tight-geometry five-action risk from six already-opened unsafe validation anchors. This is not training, data recollection, policy evaluation, flow guidance, QP correction, safety evidence or an untouched test.",
+  "source": {
+    "training_config": "configs/vlsa_tight_prefix_risk_q_diagnostic.v1.json",
+    "training_config_file_sha256": "8c2c421b97b7c54a0a00da8658d08a9baa0196caa7a2d5956d5f982089e287f7",
+    "training_config_payload_sha256": "cab9264af27c23b003f0a4c0a9a44deb0be44c1d61f12a7e8c36002d16143bd1",
+    "training_result": "/mnt/data/quanth/experiments/vlsa-tight-prefix-risk-q/tight-prefix-risk-q-20260818a/producer.json",
+    "training_result_file_sha256": "ac025e3b93ee59a81d4b529178bc78b68da42269ef610fc02ff0a8a6a6a62d15",
+    "training_result_payload_sha256": "11185d43ad2f4c871e274727b3fa98768e160dd2ff5a8e69382aca4394eaea79",
+    "training_validation": "/mnt/data/quanth/experiments/vlsa-tight-prefix-risk-q/tight-prefix-risk-q-20260818a/validation.json",
+    "training_validation_file_sha256": "1bf793a4f497d004ce9a4542b2bc427407e7c9d30f331183d5f203a6792f5bda",
+    "training_validation_payload_sha256": "6a8aeed21494ce09c3129d77b9d001a0480de09a1e42b75677f11a86f5fa7ac0",
+    "model_sha256": "135a97ba840b3299f4e8cd74c2d7e76f6b5e5a0938a6af0379a5258a9aed2102",
+    "dataset_config": "configs/vlsa_tight_prefix_risk_dataset.v1.json",
+    "dataset_config_file_sha256": "6166642e72d884f8107295ef51e770da46df4cec69fda83abf626cb9a99ce8c0",
+    "dataset_config_payload_sha256": "4c1cf9c8e17ad946b0acc3111f17eb52831a507e5964024ccb41e7465a91260e",
+    "dataset_producer_dir": "/mnt/data/quanth/experiments/vlsa-tight-prefix-risk/tight-prefix-risk-20260817a/producer-canary",
+    "dataset_artifact_commit": "e6cdc3f10674a0e9b8267f3f1aa0362f195b8fbd"
+  },
+  "probe": {
+    "decision_split": "validation",
+    "primary_rows": [0, 1, 2, 3, 4, 5, 6, 7],
+    "diagnostic_rows": [8, 9],
+    "global_risk": "beta20_logmeanexp_for_gradient_max_for_exact_evaluation",
+    "smoothmax_beta": 20.0,
+    "optimized_action_dimensions": "five_effective_XYZ_actions_only",
+    "requested_translation_l2_action": 0.25,
+    "minimum_translation_l2_action": 0.01,
+    "symmetric_bound_headroom": 0.8,
+    "bound_active_tolerance": 1e-12,
+    "probe_names": ["gradient_down", "gradient_up", "matched_random"],
+    "random_seed": 20260818,
+    "model_device": "allocated_H100_float32_matching_frozen_inference",
+    "execution": "direct_effective_action_through_unchanged_OSC_five_actions_only_no_QP"
+  },
+  "cases": [
+    {
+      "case_id": "vlsa-t1-goal-ii-t0-e39",
+      "split": "validation",
+      "unsafe_anchor_candidates": [
+        "grid_m1_m1_z0_front_loaded_r2.0",
+        "grid_z0_z0_p1_front_loaded_r2.0"
+      ]
+    },
+    {
+      "case_id": "vlsa-t1-goal-ii-t2-e44",
+      "split": "validation",
+      "unsafe_anchor_candidates": [
+        "grid_m1_m1_m1_front_loaded_r2.0",
+        "grid_m1_z0_m1_front_loaded_r2.0",
+        "grid_m1_p1_z0_front_loaded_r2.0",
+        "grid_z0_z0_m1_front_loaded_r2.0"
+      ]
+    }
+  ],
+  "gate": {
+    "required_anchor_count": 6,
+    "required_probe_rollout_count": 18,
+    "minimum_direction_accuracy": 0.6666666666666666,
+    "minimum_descent_rate": 0.6666666666666666,
+    "minimum_random_advantage_rate": 0.5,
+    "minimum_safe_conversion_count": 1,
+    "require_negative_median_down_risk_change": true,
+    "maximum_anchor_prediction_absolute_error": 0.00005,
+    "maximum_post_clipping_symmetry_error": 1e-12,
+    "maximum_independent_replay_absolute_error": 1e-9
+  },
+  "forbidden": [
+    "new_policy_query",
+    "new_state_or_episode_collection",
+    "training_or_checkpoint_change",
+    "test_split_use",
+    "backup_or_continuation",
+    "released_or_learned_QP",
+    "flow_or_denoising_guidance",
+    "full_episode_or_closed_loop",
+    "formal_safety_or_CBF_claim"
+  ]
+}

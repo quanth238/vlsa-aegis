@@ -504,15 +504,53 @@ def _evaluate_case(
         )
         overlap_tolerance = float(audit_config["gate"]["compiled_overlap_tolerance"])
         car_limit = float(audit_config["gate"]["paper_car_threshold_m"])
-        by_name = {candidate["name"]: candidate for candidate in source["candidates"]}
+        action_overrides = audit_config.get("candidate_action_overrides")
+        if action_overrides is None:
+            by_name = {
+                candidate["name"]: candidate
+                for candidate in source["candidates"]
+            }
+        else:
+            by_name = {}
+            for order, item in enumerate(action_overrides):
+                name = str(item["name"])
+                override_actions = np.asarray(
+                    item["actions"], dtype=np.float64,
+                )
+                _require(
+                    name not in by_name
+                    and override_actions.shape == (5, 7)
+                    and np.all(np.isfinite(override_actions)),
+                    "compiled-box action override differs",
+                )
+                by_name[name] = {
+                    "name": name,
+                    "actions": override_actions.tolist(),
+                    "requested_alpha": float(item.get("requested_alpha", 0.0)),
+                    "effective_post_AEGIS_correction_l2_action": float(
+                        item.get("effective_correction_l2_action", 0.0)
+                    ),
+                    "override_metadata": dict(item.get("metadata", {})),
+                    "_action_override": True,
+                    "_override_order": int(order),
+                }
         _require(set(case_config["candidate_names"]).issubset(by_name),
                  "compiled-box candidate names differ")
         candidate_records = []
         for candidate_name in case_config["candidate_names"]:
             candidate = by_name[candidate_name]
-            actions, phases = candidate_action_sequence(
-                candidate, rollout_scope=rollout_scope,
-            )
+            action_override = bool(candidate.get("_action_override", False))
+            if action_override:
+                _require(
+                    prefix_only,
+                    "compiled-box action override requires prefix-only rollout",
+                )
+                actions = [list(row) for row in candidate["actions"]]
+                phases = ["prefix"] * len(actions)
+            else:
+                actions, phases = candidate_action_sequence(
+                    candidate, rollout_scope=rollout_scope,
+                )
             restore_source()
             observation = base._get_observations()
             proxy_trace = []
@@ -675,31 +713,48 @@ def _evaluate_case(
             slack = np.asarray(exact_slack_trace, dtype=np.float64)
             overlap = np.asarray(exact_overlap_trace, dtype=bool)
             replayed_row_minimum = np.min(proxy, axis=0)
-            source_row_minimum = np.asarray(
-                candidate["prefix"]["row_minimum_clearance_m"]
-                if prefix_only
-                else candidate["combined_row_minimum_clearance_m"],
-                dtype=np.float64,
-            )
-            row_error = float(np.max(np.abs(replayed_row_minimum - source_row_minimum)))
             replay_car = float(max(displacements))
-            source_car = (
-                float(candidate["prefix"]["maximum_active_obstacle_l1_displacement_m"])
-                if prefix_only else _candidate_source_car(candidate)
-            )
-            source_contacts = (
-                int(candidate["prefix"]["protected_contact_count"])
-                if prefix_only else _candidate_source_contacts(candidate)
-            )
-            source_physical_veto = bool(
-                source_contacts > 0 or source_car > car_limit
-            ) if prefix_only else bool(candidate["physical_veto"])
             replay_physical_veto = bool(contacts or replay_car > car_limit)
-            source_proxy_nonoverlap = bool(float(np.min(source_row_minimum)) >= 0.0)
-            source_proxy_buffer_safe = bool(max(
-                candidate["candidate_prefix_risk"]
-                if prefix_only else candidate["combined_risk"]
-            ) <= 0.0)
+            if action_override:
+                source_row_minimum = None
+                row_error = None
+                source_car = None
+                source_contacts = None
+                source_physical_veto = None
+                source_proxy_nonoverlap = None
+                source_proxy_buffer_safe = None
+                source_terminal_status = None
+            else:
+                source_row_minimum = np.asarray(
+                    candidate["prefix"]["row_minimum_clearance_m"]
+                    if prefix_only
+                    else candidate["combined_row_minimum_clearance_m"],
+                    dtype=np.float64,
+                )
+                row_error = float(np.max(np.abs(
+                    replayed_row_minimum - source_row_minimum
+                )))
+                source_car = (
+                    float(candidate["prefix"][
+                        "maximum_active_obstacle_l1_displacement_m"
+                    ])
+                    if prefix_only else _candidate_source_car(candidate)
+                )
+                source_contacts = (
+                    int(candidate["prefix"]["protected_contact_count"])
+                    if prefix_only else _candidate_source_contacts(candidate)
+                )
+                source_physical_veto = bool(
+                    source_contacts > 0 or source_car > car_limit
+                ) if prefix_only else bool(candidate["physical_veto"])
+                source_proxy_nonoverlap = bool(
+                    float(np.min(source_row_minimum)) >= 0.0
+                )
+                source_proxy_buffer_safe = bool(max(
+                    candidate["candidate_prefix_risk"]
+                    if prefix_only else candidate["combined_risk"]
+                ) <= 0.0)
+                source_terminal_status = candidate["terminal_status"]
             any_exact_overlap = bool(np.any(overlap))
             compiled_safe_horizon = bool(
                 not any_exact_overlap
@@ -794,18 +849,24 @@ def _evaluate_case(
                     candidate.get("effective_post_AEGIS_correction_l2_action", 0.0)
                 ),
                 "source_executed_actions": candidate["actions"],
-                "source_terminal_status": candidate["terminal_status"],
+                "source_terminal_status": source_terminal_status,
                 "source_rollout_scope": rollout_scope,
                 "source_physical_veto": source_physical_veto,
                 "source_raw_protected_contact_count": source_contacts,
                 "source_proxy_nonoverlap": source_proxy_nonoverlap,
                 "source_proxy_buffer_safe": source_proxy_buffer_safe,
-                "source_row_minimum_clearance_m": source_row_minimum.tolist(),
+                "source_row_minimum_clearance_m": (
+                    None
+                    if source_row_minimum is None
+                    else source_row_minimum.tolist()
+                ),
                 "replayed_row_minimum_clearance_m": replayed_row_minimum.tolist(),
                 "proxy_replay_maximum_error_m": row_error,
                 "source_maximum_CAR_m": source_car,
                 "replayed_maximum_CAR_m": replay_car,
-                "CAR_replay_error_m": abs(replay_car - source_car),
+                "CAR_replay_error_m": (
+                    None if source_car is None else abs(replay_car - source_car)
+                ),
                 "replayed_physical_veto": replay_physical_veto,
                 "raw_protected_contact_sample_count": len(contacts),
                 "raw_protected_contacts": contacts,
@@ -829,16 +890,24 @@ def _evaluate_case(
                     for phase in ("prefix", "backup", "terminal_hold")
                 },
             })
+            if action_override:
+                candidate_records[-1].update({
+                    "action_override": True,
+                    "override_metadata": candidate.get("override_metadata"),
+                })
 
         tolerance = float(audit_config["gate"]["source_replay_tolerance_m"])
         source_replay_exact = bool(
             state_hash_matches
             and initial_clearance_error <= tolerance
             and all(
-                candidate["proxy_replay_maximum_error_m"] <= tolerance
-                and candidate["CAR_replay_error_m"] <= tolerance
-                and candidate["replayed_physical_veto"]
-                == candidate["source_physical_veto"]
+                candidate.get("action_override", False)
+                or (
+                    candidate["proxy_replay_maximum_error_m"] <= tolerance
+                    and candidate["CAR_replay_error_m"] <= tolerance
+                    and candidate["replayed_physical_veto"]
+                    == candidate["source_physical_veto"]
+                )
                 for candidate in candidate_records
             )
         )

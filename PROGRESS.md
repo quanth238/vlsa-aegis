@@ -7069,3 +7069,26 @@ rollout, training, QP, action execution, denoising, closed loop, or test-based
 tuning is part of this experiment. A pass can authorize only one separately
 frozen exact action-gradient development probe; a failure stops flow-guidance
 work with the current 7D representation.
+
+ADR-0206 CPU jobs `42543/42544` complete with exact replica scientific views.
+The CPU autograd implementation itself is numerically sound (maximum centered
+finite-difference error `4.1098e-10`), but it does not reproduce the frozen H100
+critic closely enough (maximum prediction error `0.0272321` versus `5e-5`).
+All 24 validation opposite-pair records also fail the exact post-clipping
+symmetry requirement, so no directional secant is eligible. Validator `42545`
+fails rather than converting this into a critic-gradient conclusion. The one
+scientific result independent of those apparatus problems is weak validation
+triggering: frozen predictions detect `4/6` exact unsafe candidates and false-
+safe `2/6`.
+
+ADR-0207 is implemented as a direct matched action-gradient feasibility probe.
+It freezes the six existing unsafe validation candidates from E39/E44 and
+constructs only three new five-action chunks at each: negative H100 critic
+gradient, positive gradient, and deterministic equal-norm random. Bound-active
+coordinates are removed and a common radius is shrunk before execution, making
+the effective gradient pair exactly symmetric instead of relying on the
+clipped ADR-0200 bank. All 18 branches start from immutable saved snapshots,
+use unchanged OSC and exact tight palm/finger/L5 risk, and stop after five
+actions. No state collection, policy query, model fit, QP, denoising,
+continuation, test split, or full episode is included. Paired H100 replicas and
+a CPU validator are the next commands.

@@ -6549,7 +6549,7 @@ inference test.
 
 ### ADR-0206 test whether the compact critic has a useful action gradient
 
-- Status: preregistered; execution pending
+- Status: apparatus-inconclusive; directional question unresolved
 - Date: 2026-08-18
 
 Before implementing a QP, late-flow guidance, another candidate family, or any
@@ -6587,3 +6587,51 @@ gradient-ready and requires an action representation that retains tangential
 components before further inference work. Run independent CPU replicas and a
 strict validator; perform no training, simulation, correction, QP, denoising,
 closed loop, or test-based tuning.
+
+CPU replicas `42543/42544` reconstruct the same scientific view, but the strict
+validator `42545` correctly rejects the numerical apparatus. Centered finite
+differences agree with CPU autograd to `4.11e-10`, while the CPU-reconstructed
+critic differs from the frozen H100 predictions by as much as `0.0272321`.
+Moreover, all 24 registered validation pairs become asymmetric after action
+clipping, leaving zero eligible secants. These are apparatus/support failures,
+not evidence that the critic gradient is physically wrong. The independently
+stored validation predictions do establish a separate trigger limitation:
+only `4/6` unsafe candidates are predicted unsafe (`66.7%` recall).
+
+Preserve this result as inconclusive and do not loosen either numerical or
+symmetry tolerances. Resolve the directional hypothesis with the exact frozen
+H100 inference path and newly constructed post-clipping-symmetric probes.
+
+### ADR-0207 directly test negative-gradient exact-risk feasibility
+
+- Status: preregistered; execution pending
+- Date: 2026-08-18
+
+Run the smallest simulator experiment that answers the unresolved mechanism.
+Use only the six already-opened unsafe validation anchors in E39/E44; do not
+open test episodes, collect new states, query pi0.5, or retrain. At each anchor,
+reconstruct the immutable ADR-0201 critic on one allocated H100 and require its
+row predictions to match the frozen inference record. Differentiate the
+beta-20 primary smooth maximum with respect to the exact effective five-action
+XYZ chunk.
+
+Project coordinates already at the action bound out of both directions, then
+choose one common radius no larger than `0.25` so that the following three
+probes have exactly equal post-clipping L2 norm:
+
+\[
+A^- = A-\alpha\widehat{\nabla_A\widehat Q},\qquad
+A^+ = A+\alpha\widehat{\nabla_A\widehat Q},\qquad
+A^r = A+\alpha d_r.
+\]
+
+Execute only these three five-action chunks through unchanged OSC from the
+identical saved state. Measure exact tight palm/finger/L5 row risk; keep L6
+diagnostic. There is no backup, continuation, QP, denoising, candidate search,
+or full episode. Across six anchors, require at least `4/6` correct down-versus-
+up ordering, `4/6` descent from the unsafe anchor, `3/6` wins over equal-norm
+random, one unsafe-to-safe conversion, a negative median risk change, exact
+independent replay, and H100 prediction agreement. Even a pass establishes
+only that the current critic supplies a locally useful direction. Because its
+unsafe trigger recall is only `66.7%`, it does not by itself authorize flow
+guidance or QP control.
