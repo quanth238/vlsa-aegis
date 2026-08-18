@@ -6987,3 +6987,11 @@ zero nominal, up to 12 registered scientific probes, and unique zero-residual
 padding. Preserve probe values/order and concatenate only their once-generated
 terminal actions. Do not infer science from the completed raw rollout and do
 not alter the case, model, gradients, radii, comparisons, or stop gates.
+
+Producer `42772` preliminarily reaches the preregistered oracle-local NO-GO:
+raw E15 is unsafe but no oracle-line radius is exact safe. Do not interpret it
+as validated until exact CPU replay passes. Replay `42776` is post-simulation
+apparatus history only: it used the frozen producer arrays but failed while
+writing allocation metadata because the result path called the H100 recorder.
+Switch only replay metadata to the established strict CPU allocation recorder;
+do not regenerate actions or modify any scientific field.

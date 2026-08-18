@@ -7405,3 +7405,13 @@ packs probes into immutable 13-branch calls (one zero nominal, at most 12
 scientific probes, unique zero padding), concatenates only the original probes
 in their registered order, and leaves every scientific setting unchanged. A
 replacement must use a new immutable root.
+
+Replacement producer `42772` completed and wrote the once-generated terminal
+action bundle. Raw E15 is exact tight-primary unsafe, and none of the four
+exact-oracle descent actions at radii through `0.25` is physical-primary safe,
+so learned/opposite/random arms were correctly skipped. Initial CPU replay
+`42776` completed simulator execution but failed before atomic output because
+the shared result writer invoked the H100-only allocation recorder on a CPU
+node. This is post-simulation apparatus history. Repair only replay provenance
+to use the existing strict CPU Slurm recorder, then rerun the same producer
+bundle under a new replay root.

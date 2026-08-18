@@ -105,6 +105,9 @@ def _public_result(
     metrics: Optional[Mapping[str, Any]], server_identity: Optional[Mapping[str, Any]],
     frozen_producer_binding: Optional[Mapping[str, Any]], started_ns: int,
 ) -> dict[str, Any]:
+    from main.multilink_ellipsoid.pi05_palm_l6_source_selection import (
+        cpu_allocation_record,
+    )
     from main.multilink_ellipsoid.shadow import allocation_record
     from main.multilink_ellipsoid.tight_prefix_single_oracle_gradient import (
         RESULT_SCHEMA, file_sha256, payload_sha256,
@@ -123,7 +126,10 @@ def _public_result(
         "replica": replica,
         "claim_scope": config["claim_scope"],
         "source": _git_identity(repo_root, expected_commit),
-        "allocation": allocation_record(),
+        "allocation": (
+            allocation_record() if replica == "producer"
+            else cpu_allocation_record()
+        ),
         "config_file_sha256": file_sha256(config_path),
         "config_payload_sha256": config["config_payload_sha256"],
         "server_identity": server_identity,
