@@ -33,7 +33,10 @@ def _maximum_numeric_difference(left: Any, right: Any) -> float:
         and isinstance(right, (int, float)) and not isinstance(right, bool)
     ):
         return abs(float(left) - float(right))
-    return 0.0 if left == right else float("inf")
+    # Scientific-view equality separately catches changed hashes and labels.
+    # Keep this helper a finite *numeric* error so an apparatus failure can be
+    # recorded atomically instead of producing a non-JSON infinity.
+    return 0.0
 
 
 def validate(
@@ -83,12 +86,33 @@ def validate(
         producer.get("summary", {}).get("checks")
         == replay.get("summary", {}).get("checks")
     )
-    _require(all(checks.values()), "oracle-flow-gradient validation failed")
-    canary_pass = bool(producer["summary"]["oracle_steering_canary_pass"])
+    binding_checks = {
+        key: value for key, value in checks.items()
+        if key not in {
+            "scientific_view_exact", "independent_replay_tolerance",
+        }
+    }
+    _require(
+        all(binding_checks.values()),
+        "oracle-flow-gradient validation artifact binding failed",
+    )
+    independent_replay_pass = bool(
+        checks["scientific_view_exact"]
+        and checks["independent_replay_tolerance"]
+    )
+    canary_pass = bool(
+        independent_replay_pass
+        and producer["summary"]["oracle_steering_canary_pass"]
+    )
+    status = (
+        "passing" if canary_pass
+        else "scientific_no_go" if independent_replay_pass
+        else "apparatus_no_go"
+    )
     result = {
         "schema_version": VALIDATION_SCHEMA,
-        "status": "passing" if canary_pass else "scientific_no_go",
-        "scientific_result": True,
+        "status": status,
+        "scientific_result": independent_replay_pass,
         "source": _git_identity(repo_root, expected_commit),
         "accepted_experiment_commit": accepted_commit,
         "config_file_sha256": config["config_file_sha256"],
@@ -104,6 +128,7 @@ def validate(
             "payload_sha256": replay["result_payload_sha256"],
         },
         "checks": checks,
+        "independent_replay_pass": independent_replay_pass,
         "maximum_independent_replay_absolute_error": float(maximum_error),
         "summary": producer["summary"],
         "case_results": producer["case_results"],

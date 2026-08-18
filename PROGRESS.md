@@ -7331,3 +7331,20 @@ apparatus history. The repair loads and verifies only the already-bound
 Table-1 file/payload before replaying its identical prefix. Cases, flow step,
 bank, model, gradients, radii, simulator, and scientific gates are unchanged,
 and the replacement must use a new immutable root.
+
+Replacement producer/replay jobs `42740/42741` completed all three registered
+roots in about ten minutes without training, QP, continuation, or full-episode
+execution. Both replicas give the same eligibility classification: after
+late-flow terminalization E39 has zero hard-risk-unsafe candidates (nine of 13
+also pass the physical/CAR acceptance rule), E44 has 13/13 physical-safe
+candidates, and E05 remains 13/13 physical-safe. Thus neither registered
+boundary root supplies the required local safe/unsafe terminal crossing and no
+finite-difference or correction branch is authorized.
+
+Validator `42742` then correctly detected that the regenerated H100 terminal
+actions are not bit-exact across replicas, but incorrectly raised before
+writing that failed apparatus gate. Repair only the CPU validator to write an
+immutable `apparatus_no_go` artifact with the numeric error and all failed
+checks. Do not rerun either completed simulator replica, relax the `1e-9`
+replay tolerance, or reinterpret the agreed zero-eligible classification as a
+passed scientific result.
