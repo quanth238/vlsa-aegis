@@ -6960,3 +6960,24 @@ with nominal pass-through when supported; do not collect new labels, retrain,
 or scale this unconditional rule. Validation file/payload SHA-256 values are
 `3e9319d19a8bb107469f5f6f0429c3eaed7ceb9d453909de43ddc9def74ab6fe` and
 `55e42667a30e1e3040150b2e3c7003ac9650bf8756b5697063c48a896a203a5f`.
+
+ADR-0204 preregisters one inference-only correction to the failed deployment
+objective, again on the already-opened E15 episode. The frozen ADR-0201 critic,
+pi0.5 policy, tight primitives, unchanged OSC, episode, seeds, five-action
+requery cadence, contact/CAR authority, and `300`-action limit remain fixed.
+No label collection or model training is added.
+
+Outside normalized primary tight-geometry slack `<1.0`, execute nominal without
+calling the critic. Inside that warning region, score nominal plus twelve
+action-space detour-and-rejoin chunks: normal/up/side, both signs, magnitudes
+`1.0/2.0`, and correction profile `[0.5,0.5,0,-0.5,-0.5]`. Scale a requested
+magnitude down only enough to avoid translation clipping, so the effective XYZ
+correction sums to zero exactly and rotation/gripper remain nominal. Accept a
+candidate only when every tight-EE/palm/L5 row is at or below the negative
+empirical margin `-0.1421400248048467`, frozen from ADR-0201 validation
+near-boundary RMSE. Pass nominal through when accepted; otherwise select the
+accepted candidate with minimum effective correction, or abstain if none is
+accepted. This margin is an empirical mechanism setting, not calibration or a
+formal guarantee. One H100 producer, CPU exact-action replay, and strict
+validator will report collision-free task success, warning/critic/intervention
+counts, endpoint preservation, abstention, and video.

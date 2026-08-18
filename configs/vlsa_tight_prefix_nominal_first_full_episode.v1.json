@@ -1,0 +1,113 @@
+{
+  "schema_version": "vlsa_tight_prefix_nominal_first_full_episode.v1",
+  "protocol_id": "vlsa-tight-prefix-nominal-first-full-episode-v1",
+  "claim_scope": "One opened Spatial-I E15 inference-only pilot testing whether a geometry-triggered, endpoint-preserving, nominal-first minimum-intervention shield preserves both collision freedom and native task success. This is not population, untouched-generalization, deployment, formal-safety, or CBF evidence.",
+  "case_id": "vlsa-t1-spatial-i-t3-e15",
+  "source": {
+    "training_config": "configs/vlsa_tight_prefix_risk_q_diagnostic.v1.json",
+    "training_config_file_sha256": "8c2c421b97b7c54a0a00da8658d08a9baa0196caa7a2d5956d5f982089e287f7",
+    "training_config_payload_sha256": "cab9264af27c23b003f0a4c0a9a44deb0be44c1d61f12a7e8c36002d16143bd1",
+    "training_result": "/mnt/data/quanth/experiments/vlsa-tight-prefix-risk-q/tight-prefix-risk-q-20260818a/producer.json",
+    "training_result_file_sha256": "ac025e3b93ee59a81d4b529178bc78b68da42269ef610fc02ff0a8a6a6a62d15",
+    "training_result_payload_sha256": "11185d43ad2f4c871e274727b3fa98768e160dd2ff5a8e69382aca4394eaea79",
+    "model_sha256": "135a97ba840b3299f4e8cd74c2d7e76f6b5e5a0938a6af0379a5258a9aed2102",
+    "training_validation": "/mnt/data/quanth/experiments/vlsa-tight-prefix-risk-q/tight-prefix-risk-q-20260818a/validation.json",
+    "training_validation_file_sha256": "1bf793a4f497d004ce9a4542b2bc427407e7c9d30f331183d5f203a6792f5bda",
+    "training_validation_payload_sha256": "6a8aeed21494ce09c3129d77b9d001a0480de09a1e42b75677f11a86f5fa7ac0",
+    "tight_dataset_config": "configs/vlsa_tight_prefix_risk_dataset.v1.json",
+    "tight_dataset_config_file_sha256": "6166642e72d884f8107295ef51e770da46df4cec69fda83abf626cb9a99ce8c0",
+    "tight_dataset_config_payload_sha256": "4c1cf9c8e17ad946b0acc3111f17eb52831a507e5964024ccb41e7465a91260e",
+    "geometry_archive": "/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a/tasks/task-3/results/aegis/vlsa-t1-spatial-i-t3-e15/result.json",
+    "geometry_archive_file_sha256": "7c44462b77a8ff7e046ca93f81d13e27e39bb69d3636d58d18121816300e7e8b",
+    "geometry_archive_payload_sha256": "2db4b947d433cc8306a2844463e029283ba37cc8b653dc121e29d217c545a687",
+    "raw_pi05_archive": "/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a/tasks/task-3/results/pi05/vlsa-t1-spatial-i-t3-e15/result.json",
+    "raw_pi05_archive_file_sha256": "79ebacc48bf1d1e789972efb96d9d40099c0bce8d8b02b9ca28d2ddc0fcd3b41",
+    "raw_pi05_archive_payload_sha256": "6359a741e849a5f9624dc8be0f640779481177022fb61bb79c1db0e7c4a7c68d",
+    "prior_full_episode_validation": "/mnt/data/quanth/experiments/vlsa-tight-prefix-full-episode/tight-prefix-full-episode-20260818a/validation/validation.json",
+    "prior_full_episode_validation_file_sha256": "3e9319d19a8bb107469f5f6f0429c3eaed7ceb9d453909de43ddc9def74ab6fe",
+    "prior_full_episode_validation_payload_sha256": "55e42667a30e1e3040150b2e3c7003ac9650bf8756b5697063c48a896a203a5f"
+  },
+  "method": {
+    "start_step": 0,
+    "replan_stride": 5,
+    "warning": {
+      "rows": [0,1,2,3,4,5,6,7],
+      "normalized_radial_slack_strictly_below": 1.0,
+      "outside_warning": "execute_nominal_without_critic"
+    },
+    "candidate_count_inside_warning": 13,
+    "candidate_names": [
+      "nominal",
+      "detour_normal_m1_r1.0",
+      "detour_normal_p1_r1.0",
+      "detour_normal_m1_r2.0",
+      "detour_normal_p1_r2.0",
+      "detour_tangent_up_m1_r1.0",
+      "detour_tangent_up_p1_r1.0",
+      "detour_tangent_up_m1_r2.0",
+      "detour_tangent_up_p1_r2.0",
+      "detour_tangent_side_m1_r1.0",
+      "detour_tangent_side_p1_r1.0",
+      "detour_tangent_side_m1_r2.0",
+      "detour_tangent_side_p1_r2.0"
+    ],
+    "candidate_generation": {
+      "coordinates": "current_minimum_slack_tight_row_local_frame",
+      "profile": [0.5,0.5,0.0,-0.5,-0.5],
+      "translation_axes": ["normal","tangent_up","tangent_side"],
+      "signs": [-1,1],
+      "magnitudes": [1.0,2.0],
+      "action_limit": 1.0,
+      "endpoint_preservation": "sum_effective_xyz_correction_over_five_actions_equals_zero",
+      "rotation_and_gripper_preserved": true
+    },
+    "critic": "frozen_ADR_0201_compact_shared_7D_tight_prefix",
+    "model_rows": [0,1,2,3,4,5,6,7,8,9],
+    "primary_rows": [0,1,2,3,4,5,6,7],
+    "diagnostic_rows": [8,9],
+    "acceptance": {
+      "rule": "all_primary_rows_at_or_below_negative_margin",
+      "margin": 0.1421400248048467,
+      "margin_source": "ADR_0201_validation_primary_near_boundary_RMSE",
+      "margin_is_empirical_not_formal": true
+    },
+    "selection": "nominal_if_accepted_else_minimum_effective_correction_accepted_else_abstain",
+    "translation_scale_m_per_action_unit": 0.05
+  },
+  "controller": {
+    "action_interface": "full_Cartesian_7D",
+    "translation_clip": [-1.0,1.0],
+    "rotation_and_gripper_preserved": true,
+    "OSC": "unchanged_OSC_POSE"
+  },
+  "termination": {
+    "native_task_success": true,
+    "first_raw_robot_contact": true,
+    "first_paper_CAR_violation": true,
+    "all_predicted_unsafe_abstention": true,
+    "registered_suite_timeout": true
+  },
+  "physical_contact_groups": {
+    "palm": ["gripper0_hand_collision"],
+    "finger1_base": ["gripper0_finger1_collision"],
+    "finger1_pad": ["gripper0_finger1_pad_collision"],
+    "finger2_base": ["gripper0_finger2_collision"],
+    "finger2_pad": ["gripper0_finger2_pad_collision"],
+    "L5": ["robot0_link5_collision"],
+    "L6": ["robot0_link6_collision"],
+    "L7": ["robot0_link7_collision"]
+  },
+  "verification": {
+    "producer_video": true,
+    "independent_exact_action_CPU_replay": true,
+    "scientific_view_equality": true
+  },
+  "forbidden": {
+    "released_AEGIS_EE_QP": false,
+    "learned_QP": false,
+    "late_denoising": false,
+    "simulator_candidate_rollout": false,
+    "model_training": false,
+    "data_collection": false
+  }
+}

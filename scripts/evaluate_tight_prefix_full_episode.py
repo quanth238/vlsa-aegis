@@ -81,25 +81,62 @@ class LiveTightPrefixSelector:
             == source["model_sha256"],
             "tight-prefix full-episode model differs",
         )
+        if "acceptance" in config["method"]:
+            _require(
+                float(trained["compact_shared_7D"]["metrics"]["validation"]
+                      ["primary"]["global"]["near_boundary_RMSE"])
+                == float(config["method"]["acceptance"]["margin"]),
+                "nominal-first empirical margin differs",
+            )
         self.state_payload = trained["compact_shared_7D"]["model"][
             "state_payload"
         ]
 
-        selector_path = Path(source["selector_validation"])
-        _require(
-            file_sha256(selector_path)
-            == source["selector_validation_file_sha256"],
-            "tight-prefix full-episode selector validation differs",
-        )
-        selector = _load(selector_path)
-        _require(
-            selector.get("validation_payload_sha256")
-            == source["selector_validation_payload_sha256"]
-            and selector.get("frozen_rule_from_validation_only")
-            == "minimum_predicted_primary_risk"
-            and selector.get("opened_full_episode_pilot_supported") is True,
-            "tight-prefix full-episode selector gate differs",
-        )
+        if "selector_validation" in source:
+            selector_path = Path(source["selector_validation"])
+            _require(
+                file_sha256(selector_path)
+                == source["selector_validation_file_sha256"],
+                "tight-prefix full-episode selector validation differs",
+            )
+            selector = _load(selector_path)
+            _require(
+                selector.get("validation_payload_sha256")
+                == source["selector_validation_payload_sha256"]
+                and selector.get("frozen_rule_from_validation_only")
+                == "minimum_predicted_primary_risk"
+                and selector.get("opened_full_episode_pilot_supported") is True,
+                "tight-prefix full-episode selector gate differs",
+            )
+        else:
+            validation_path = Path(source["training_validation"])
+            _require(
+                file_sha256(validation_path)
+                == source["training_validation_file_sha256"],
+                "nominal-first training validation differs",
+            )
+            validation = _load(validation_path)
+            _require(
+                validation.get("validation_payload_sha256")
+                == source["training_validation_payload_sha256"],
+                "nominal-first training validation payload differs",
+            )
+            prior_path = Path(source["prior_full_episode_validation"])
+            _require(
+                file_sha256(prior_path)
+                == source["prior_full_episode_validation_file_sha256"],
+                "nominal-first prior full-episode validation differs",
+            )
+            prior = _load(prior_path)
+            _require(
+                prior.get("validation_payload_sha256")
+                == source["prior_full_episode_validation_payload_sha256"]
+                and prior.get("status")
+                == "validated_exact_opened_full_episode"
+                and prior.get("terminal_reason") == "timeout"
+                and prior.get("native_task_success") is False,
+                "nominal-first prior full-episode verdict differs",
+            )
 
         dataset_path = repo_root / source["tight_dataset_config"]
         _require(

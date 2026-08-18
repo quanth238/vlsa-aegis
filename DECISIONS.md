@@ -6469,3 +6469,24 @@ validation-frozen safety information to choose the least-modifying supported
 candidate and pass nominal through when it is supported safe. It must not add
 new collection, QP, denoising, or model tuning, and it must remain an opened
 mechanism test until exact replay and native task success both pass.
+
+### ADR-0204 test geometry-triggered nominal-first detour shielding
+
+Keep ADR-0203's frozen policy, model, geometry, controller, episode and replay
+contract. Change only the inference objective and local candidate temporal
+profile. Use current primary normalized radial slack `<1.0` as a geometry-defined
+critic validity warning. Outside it, pass the ordinary pi0.5 five-action chunk
+without critic evaluation. Inside it, generate nominal plus twelve zero-sum
+normal/up/side detours with requested action-space magnitudes `1.0/2.0`; scale
+only to avoid clipping and preserve the exact commanded endpoint.
+
+Use the immutable ADR-0201 validation near-boundary RMSE
+`0.1421400248048467` as the empirical acceptance margin for every primary row.
+If nominal passes, execute nominal. Otherwise choose the accepted candidate with
+minimum effective correction; if none passes, abstain. Do not minimize risk
+after feasibility, force a least-unsafe action, query the critic outside the
+warning region, simulate candidate futures, recollect, retrain, add a QP, or
+change denoising. Accept only exact CPU action replay. This opened pilot tests
+whether intervention becomes localized while preserving collision-free native
+task success; it cannot authorize a population, safety, deployment, or CBF
+claim.

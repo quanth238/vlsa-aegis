@@ -159,6 +159,7 @@ def score_terminal_bank(
     state_payload: Mapping[str, Any],
     primary_rows: Sequence[int] = (0, 1, 2, 3, 4),
     model_rows: Optional[Sequence[int]] = None,
+    required_candidate_names: Optional[Sequence[str]] = None,
     translation_scale: float = 0.05,
 ) -> dict[str, Any]:
     """Score only clipped, terminal executable chunks with the frozen critic."""
@@ -175,11 +176,19 @@ def score_terminal_bank(
     )
 
     names = [str(name) for name in candidate_names]
-    if tuple(names) != FROZEN_CANDIDATE_NAMES:
+    required_names = tuple(
+        FROZEN_CANDIDATE_NAMES
+        if required_candidate_names is None
+        else (str(name) for name in required_candidate_names)
+    )
+    if tuple(names) != required_names:
         raise ValueError("terminal scorer candidate names differ")
     ordinary = np.asarray(ordinary_terminal_actions, dtype=np.float64)
     terminal = np.asarray(terminal_action_bank, dtype=np.float64)
-    if ordinary.shape != (10, 7) or terminal.shape != (13, 10, 7):
+    if (
+        ordinary.shape != (10, 7)
+        or terminal.shape != (len(required_names), 10, 7)
+    ):
         raise ValueError("terminal scorer action shapes differ")
     if not np.all(np.isfinite(ordinary)) or not np.all(np.isfinite(terminal)):
         raise ValueError("terminal scorer actions are non-finite")
