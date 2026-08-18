@@ -7134,3 +7134,21 @@ ADR-0207's zero safe conversions do not diagnose critic inability; the correct
 next experiment moves the unchanged trigger/guidance to an earlier VLA query.
 Retraining, QP, analytical guidance, new architecture, generic collection,
 policy queries, and new simulation are forbidden in this audit.
+
+CPU audits `42584/42585` and validator `42586` complete ADR-0208 with exact
+scientific agreement over all 24 states and 312 immutable candidates. No
+simulation, policy query, or training occurs. The known exact-safe action count
+inside the translation-only `0.25` ball is zero for every split: train `0/53`
+primary-risk-unsafe anchors, validation `0/6`, and already-opened diagnostic
+test `0/23`. The nearest validation safe action is distance `1.07013843`, with
+median `1.39693844`; the six ADR-0207 anchors range from `1.07013843` to
+`1.90545936`. All non-translation components match, so this is a support-radius
+failure rather than an action-channel mismatch.
+
+Consequently, the requested supported-state critic test has no eligible anchor
+in the current artifacts. Do not retrain and do not reinterpret ADR-0207's
+`0/6` conversion as critic failure. The next mechanism test must intervene at
+an earlier VLA query and establish a locally recoverable target there before
+judging bounded guidance. Validation file/payload SHA-256 values are
+`db7a4f333dce2c4f52b3f3e4f427090c566c1c546f764de4c5d44e1f589f4bd4` and
+`b54e8312e5c4ebf3c6c88fb514472ae640b34202cb36e549f446402c280b25d6`.

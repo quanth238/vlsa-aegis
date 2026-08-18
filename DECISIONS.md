@@ -6666,7 +6666,7 @@ not threshold tuning of ADR-0207. Validation file/payload SHA-256 values are
 
 ### ADR-0208 audit exact local safe support before changing the critic
 
-- Status: preregistered
+- Status: completed; no eligible supported anchor, intervene earlier
 - Date: 2026-08-18
 
 Do not infer critic failure from ADR-0207's `0/6` safe conversions until local
@@ -6690,3 +6690,20 @@ states; move the same learned-risk trigger and bounded gradient guidance to an
 earlier VLA query. No simulation, policy query, fit, architecture change, QP,
 analytical hybrid, flow guidance, generic collection, or test-based decision is
 part of this audit.
+
+Independent CPU jobs `42584/42585` and validator `42586` agree exactly. Among
+primary-risk-unsafe anchors, known exact-safe action support inside radius
+`0.25` is train `0/53`, validation `0/6`, and already-opened diagnostic test
+`0/23`. The closest known validation safe action is `1.07013843` away and the
+median is `1.39693844`; every one of the six ADR-0207 anchors is outside the
+trust region. The audit uses no simulator rollout, policy query, or training.
+
+This does not prove that no unobserved safe action exists in the continuous
+ball. It proves that the current immutable labels contain no known safe target
+with which to make the user's matched critic-capability test. Therefore do not
+retrain from ADR-0207 and do not enlarge the trust region to reach the distant
+bank actions. Move the unchanged risk trigger and bounded guidance to an
+earlier VLA query, then require an exact local safe witness before using that
+state to judge the gradient against random. Validation file/payload SHA-256
+values are `db7a4f333dce2c4f52b3f3e4f427090c566c1c546f764de4c5d44e1f589f4bd4`
+and `b54e8312e5c4ebf3c6c88fb514472ae640b34202cb36e549f446402c280b25d6`.
