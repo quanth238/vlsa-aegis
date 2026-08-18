@@ -6528,3 +6528,21 @@ no candidate simulator lookahead, retraining, recollection, QP, or denoising.
 Require an exact CPU action replay and report both physical collision and native
 task success. Because E42 is already opened and ADR-0204 already failed, this
 is a transfer diagnostic only and cannot rescue or scale the method claim.
+
+Producer `42161`, exact-action replay `42164`, and validator `42166` reproduce
+the complete E42 scientific view exactly. The frozen rule passes through three
+nominal chunks, invokes the critic once at query `3`, rejects nominal, and
+selects the endpoint-preserving `detour_normal_m1_r1.0`. The critic predicts
+primary risk `-0.607880`, yet raw finger-base contact begins at action `16`
+substep `20`. Native and collision-free task success are false. CAR happens to
+pass because obstacle displacement stays below its threshold, so raw contact
+remains decisive.
+
+This independent-scene repetition closes the diagnostic. Retain the useful
+nominal-first warning principle, but reject applying the ADR-0201 critic to the
+new temporal detour profile. Do not test more scenes, tune thresholds on E15 or
+E42, or scale this method. The next scientific fork is explicit: either test
+nominal-first inference with the temporal candidate family represented in the
+existing training data, or collect matched detour supervision and reserve new
+episodes for evaluation. The latter is a model/data change, not another frozen
+inference test.

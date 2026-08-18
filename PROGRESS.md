@@ -7025,3 +7025,34 @@ only show whether the frozen behavior repeats in another scene; ADR-0204
 remains a method NO-GO even if E42 succeeds. Require one H100 producer, one CPU
 exact-action replay, and strict scientific-view validation before reporting
 collision-free native task success.
+
+H100 producer `42161`, CPU exact-action replay `42164`, and validator `42166`
+complete ADR-0205 from immutable commit
+`ed78256eff8c2e0c998f1672a1e33a2a9ac3d4b3` with exact scientific-view
+agreement. E42 repeats ADR-0204's localized behavior: three nominal selections,
+one warning/critic invocation at query `3`, and one endpoint-preserving
+intervention. At warning slack `0.422277`, nominal prediction `-0.069304` fails
+the frozen `-0.142140` margin; two detours are accepted and
+`detour_normal_m1_r1.0` is selected with predicted primary risk `-0.607880`,
+applied magnitude `0.854344`, and exact zero correction sum.
+
+The selected detour is again a physical false-safe. Raw
+`gripper0_finger1_collision` contact with `wine_bottle_obstacle_1_g22` starts
+at action `16` substep `20` (`-0.000449282` m contact distance), producing six
+finger-base contact samples. The run stops after `17` actions with native and
+collision-free task success false. Paper CAR passes because maximum obstacle
+displacement is only `0.000316820` m, which reinforces why raw contact remains
+the physical authority. Validation/video SHA-256 values are
+`f8c16df712c86a92b3db951090a109b7b9a14949a319e37ecae86242d2e319b4` and
+`320dcc6a82873fed78bbdbea910e0a25d121563814cb73c885251f0c3518ff19`.
+
+Two different scenes now reject the frozen-prefix-critic/new-detour
+combination, despite successful warning localization and exact endpoint
+preservation. Stop additional scene testing and do not tune the margin or
+warning threshold. Reusing ADR-0201 without new supervision requires retaining
+its trained temporal candidate family; testing endpoint-preserving detours as a
+paper method requires matched detour labels/retraining plus untouched episodes.
+Source-prep jobs `42158/42159` are apparatus history only: the fresh partial
+clone was canceled after a clean existing checkout was available, and the
+incremental prep's short-hash comparison failed after reaching the correct full
+commit. Neither ran simulation or changed the accepted producer source.
