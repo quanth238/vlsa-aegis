@@ -7396,3 +7396,12 @@ gradient; both safe may authorize only a separately frozen tiny full-episode
 every-query pilot; oracle unsafe requires earlier intervention. No training,
 QP, broad state search, collection, full episode, or threshold/radius tuning is
 part of ADR-0213.
+
+Initial producer `42770` stopped before finite-difference candidate simulation:
+the validated terminal sampler accepts exactly 13 named branches, whereas the
+new evaluator attempted one 31-probe request. The raw E15 rollout ran but no
+result artifact or gradient verdict was written. The apparatus-only repair
+packs probes into immutable 13-branch calls (one zero nominal, at most 12
+scientific probes, unique zero padding), concatenates only the original probes
+in their registered order, and leaves every scientific setting unchanged. A
+replacement must use a new immutable root.

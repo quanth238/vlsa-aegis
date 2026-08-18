@@ -179,7 +179,7 @@ def run_producer(
     )
     from main.multilink_ellipsoid.tight_prefix_single_oracle_gradient import (
         comparison_metrics, comparison_residuals, load_config,
-        oracle_line_residuals,
+        oracle_line_residuals, terminal_branch_batches,
     )
 
     started = time.perf_counter_ns()
@@ -201,35 +201,46 @@ def run_producer(
         observation: Mapping[str, Any], task: Any, seed: int, ordinary: Any,
         names: Sequence[str], residuals: Sequence[Any],
     ) -> tuple[Any, dict[str, Any]]:
-        requested = np.asarray(residuals, dtype=np.float64)
-        labels = list(names)
-        prepend = not bool(np.array_equal(
-            requested[0], np.zeros((10, 3), dtype=np.float64),
-        ))
-        if prepend:
-            labels = ["ordinary_reference"] + labels
-            requested = np.concatenate([
-                np.zeros((1, 10, 3), dtype=np.float64), requested,
-            ], axis=0)
-        envelope = terminal_branch_envelope(
-            labels, requested,
-            branch_after_euler_step=int(config["flow"]["branch_after_euler_step"]),
-        )
-        request = _policy_observation(
-            runtime, observation, task_description=str(task.language),
-            resize_size=224, rng_seed=seed,
-        )
-        request["__crfs__"]["terminal_branching"] = envelope
-        diagnostic = client.infer(request)["terminal_branching"]
-        terminal = np.asarray(diagnostic["terminal_output_actions"], dtype=np.float64)
+        batches = terminal_branch_batches(names, residuals)
+        scientific = []
+        batch_receipts = []
+        for batch in batches:
+            envelope = terminal_branch_envelope(
+                batch["request_names"], batch["request_residuals"],
+                branch_after_euler_step=int(
+                    config["flow"]["branch_after_euler_step"]
+                ),
+            )
+            request = _policy_observation(
+                runtime, observation, task_description=str(task.language),
+                resize_size=224, rng_seed=seed,
+            )
+            request["__crfs__"]["terminal_branching"] = envelope
+            diagnostic = client.infer(request)["terminal_branching"]
+            terminal = np.asarray(
+                diagnostic["terminal_output_actions"], dtype=np.float64,
+            )
+            count = len(batch["scientific_names"])
+            _require(
+                diagnostic["candidate_names"] == batch["request_names"]
+                and terminal.shape == (13, 10, 7)
+                and float(np.max(np.abs(terminal[0] - ordinary))) == 0.0,
+                "single-oracle-gradient branch-zero pairing differs",
+            )
+            scientific.append(terminal[1:1 + count])
+            batch_receipts.append({
+                "batch_index": batch["batch_index"],
+                "scientific_names": batch["scientific_names"],
+                "request_names": batch["request_names"],
+                "batched_zero_branch_max_abs_model_difference": float(
+                    diagnostic["batched_zero_branch_max_abs_model_difference"]
+                ),
+            })
+        terminal = np.concatenate(scientific, axis=0)
         _require(
-            diagnostic["candidate_names"] == labels
-            and terminal.shape == (len(labels), 10, 7)
-            and float(np.max(np.abs(terminal[0] - ordinary))) == 0.0,
-            "single-oracle-gradient branch-zero pairing differs",
+            terminal.shape == (len(names), 10, 7),
+            "single-oracle-gradient packed terminal result differs",
         )
-        if prepend:
-            terminal = terminal[1:]
         return terminal, {
             "candidate_names": list(names),
             "requested_residual_sha256": array_sha256(
@@ -237,9 +248,8 @@ def run_producer(
             ),
             "terminal_action_sha256": array_sha256(terminal),
             "branch_zero_exact": True,
-            "batched_zero_branch_max_abs_model_difference": float(
-                diagnostic["batched_zero_branch_max_abs_model_difference"]
-            ),
+            "batch_count": len(batch_receipts),
+            "batches": batch_receipts,
         }
 
     try:

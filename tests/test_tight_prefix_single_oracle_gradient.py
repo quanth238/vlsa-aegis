@@ -77,6 +77,22 @@ class TightPrefixSingleOracleGradientTests(unittest.TestCase):
         self.assertEqual(metrics["random_safe_count"], 1)
         self.assertEqual(metrics["oracle_random_advantage_rate"], 1.0)
 
+    def test_terminal_probes_pack_into_frozen_thirteen_branch_calls(self):
+        import numpy as np
+        from main.multilink_ellipsoid.tight_prefix_single_oracle_gradient import (
+            terminal_branch_batches,
+        )
+
+        names = [f"probe_{index}" for index in range(31)]
+        values = np.zeros((31, 10, 3), dtype=np.float64)
+        batches = terminal_branch_batches(names, values)
+        self.assertEqual([len(batch["request_names"]) for batch in batches], [13] * 3)
+        self.assertEqual([len(batch["scientific_names"]) for batch in batches], [12, 12, 7])
+        self.assertTrue(all(batch["request_names"][0] == "nominal" for batch in batches))
+        self.assertEqual(
+            [name for batch in batches for name in batch["scientific_names"]], names,
+        )
+
     def test_config_is_json(self):
         path = self.repo / "configs/vlsa_tight_prefix_single_oracle_gradient.v1.json"
         self.assertIsInstance(json.loads(path.read_text()), dict)

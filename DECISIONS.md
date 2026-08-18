@@ -6979,3 +6979,11 @@ path to a tiny full-episode pilot; no oracle-safe action means the local
 correction premise fails at this query and intervention must move earlier.
 Never retrain, add QP, scale collection, or open a full episode inside this
 decision.
+
+Producer `42770` is pre-finite-difference apparatus history only. The sampler's
+already-validated interface is frozen to 13 branches; it correctly rejected a
+31-name request. Repair only request packing: each policy call contains one
+zero nominal, up to 12 registered scientific probes, and unique zero-residual
+padding. Preserve probe values/order and concatenate only their once-generated
+terminal actions. Do not infer science from the completed raw rollout and do
+not alter the case, model, gradients, radii, comparisons, or stop gates.

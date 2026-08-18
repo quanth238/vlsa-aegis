@@ -150,6 +150,43 @@ def oracle_line_residuals(
     return names, residuals
 
 
+def terminal_branch_batches(
+    names: Sequence[str], residuals: Sequence[Any], *, batch_width: int = 13,
+) -> list[dict[str, Any]]:
+    """Pack arbitrary probes into the sampler's frozen 13-branch envelope."""
+    import numpy as np
+
+    labels = [str(name) for name in names]
+    values = np.asarray(residuals, dtype=np.float64)
+    if (
+        batch_width != 13 or len(labels) != len(set(labels))
+        or any(not name or name == "nominal" for name in labels)
+        or values.shape != (len(labels), 10, 3)
+        or not np.all(np.isfinite(values))
+    ):
+        raise ValueError("single-oracle-gradient terminal batch differs")
+    output = []
+    for batch_index, start in enumerate(range(0, len(labels), batch_width - 1)):
+        stop = min(start + batch_width - 1, len(labels))
+        selected_names = labels[start:stop]
+        selected_values = values[start:stop]
+        pad_count = batch_width - 1 - len(selected_names)
+        request_names = ["nominal", *selected_names]
+        request_values = [np.zeros((10, 3), dtype=np.float64), *selected_values]
+        for pad_index in range(pad_count):
+            request_names.append(f"padding_{batch_index:02d}_{pad_index:02d}")
+            request_values.append(np.zeros((10, 3), dtype=np.float64))
+        output.append({
+            "batch_index": int(batch_index),
+            "scientific_start": int(start),
+            "scientific_stop": int(stop),
+            "scientific_names": selected_names,
+            "request_names": request_names,
+            "request_residuals": np.asarray(request_values).tolist(),
+        })
+    return output
+
+
 def comparison_residuals(
     learned_gradient: Sequence[float], oracle_gradient: Sequence[float],
     *, radius: float, random_seed: int,
