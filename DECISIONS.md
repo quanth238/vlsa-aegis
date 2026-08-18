@@ -7001,3 +7001,20 @@ oracle-local NO-GO. The final validator must bind producer commit `a69dfb1` and
 replay commit `a7c4d7a` as separate immutable roles; scientific-view equality
 already excludes source/allocation provenance. Repair only this binding API and
 perform no further rollout.
+
+### ADR-0213 verdict: move the intervention earlier
+
+- Status: validated oracle-local NO-GO
+- Evidence: producer `42772`, exact-action CPU replay `42778`, validator `42784`
+
+The E15 raw terminal chunk is a valid unsafe anchor (`Q=+0.1194414`), and
+producer/replay scientific views are bit-exact. Exact oracle-gradient descent
+does improve the target, but the maximum registered correction leaves
+`Q=+0.1016221`; thus no exact-safe oracle witness exists on the preregistered
+line inside radius `0.25`. Respect the stop gate: do not execute learned,
+opposite, random, or full-episode arms at this query. The frozen critic also
+calls the unsafe anchor safe (`-0.0698585`) and its gradient has cosine
+`0.3274782` with the exact gradient, but action-gradient success/failure cannot
+be isolated without a reachable exact-safe witness. Retain the formulation and
+repeat only at a separately frozen earlier query where local exact-safe support
+is established first; do not retrain or scale collection from this result.

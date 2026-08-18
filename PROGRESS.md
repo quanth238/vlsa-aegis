@@ -7422,3 +7422,22 @@ the provenance-only replay repair is commit `a7c4d7a`, update the CPU validator
 to bind producer and replay commits separately. This is read-only validation;
 do not rerun simulation or require the two apparatus revisions to share one
 commit identifier.
+
+ADR-0213 is independently validated by producer `42772`, exact-action CPU
+replay `42778`, and CPU validator `42784`. Every replay check passes with
+maximum scientific-view error `0.0` and zero represented-geometry physical
+false-safes. The actual terminalized raw pi0.5 chunk is unsafe under the tight
+primary target: exact risk `+0.1194414`, while the frozen critic predicts
+`-0.0698585` (a value false-safe). Exact oracle-gradient descent reduces risk
+monotonically at radii `0.0625/0.125/0.1875/0.25` to
+`0.1153819/0.1095944/0.1056159/0.1016221`, but never reaches safety. The
+learned/exact gradient cosine is only `0.3274782`, yet no learned-gradient
+control verdict is permitted because the exact-safe-witness prerequisite
+failed. Status is `oracle_local_no_go`: do not run comparison arms or a full
+episode; move intervention to an earlier warning query. This line test does
+not prove that every arbitrary action in the full radius ball is unsafe.
+Validation artifact:
+`/mnt/data/quanth/experiments/vlsa-tight-prefix-single-oracle-gradient/single-oracle-gradient-e15-20260819b/validation.json`;
+file/payload SHA-256 values are
+`66ee90569938c640376467a117e3381c5057d66e5a4843832e1f5b80a5731eac` and
+`0b29204054a82dc2367596e3c9b86f8fa9b15407feb099aa4e3da23e05ba6a81`.
