@@ -6490,3 +6490,21 @@ change denoising. Accept only exact CPU action replay. This opened pilot tests
 whether intervention becomes localized while preserving collision-free native
 task success; it cannot authorize a population, safety, deployment, or CBF
 claim.
+
+Producer `42148`, exact-action replay `42150`, and validator `42153` reproduce
+the complete scientific view exactly. The deployment objective change is
+supported: only one of four queries invokes the critic and intervenes, versus
+60 of 60 interventions under unconditional minimum-risk selection. Endpoint
+preservation also passes exactly for the selected detour.
+
+Reject the combined frozen-critic/new-detour method, however. The critic accepts
+`detour_normal_m1_r1.0` at predicted primary risk `-0.238413`, but raw palm
+contact begins during action `17` before rejoining, and CAR fails. Native and
+collision-free task success are both false. The temporal shape is outside the
+candidate family used to train ADR-0201, so this is a critic-support failure,
+not a reason to tune E15 thresholds or conclude that endpoint-preserving
+detours are intrinsically invalid. Keep nominal-first warning gating as the
+supported control principle. For a zero-retraining test, change only the
+selection objective while retaining the trained temporal family. To claim the
+detour family, preregister matched detour labels/training and an untouched
+evaluation. Do not scale ADR-0204 or add QP/denoising from this result.

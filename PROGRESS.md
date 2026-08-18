@@ -6981,3 +6981,30 @@ accepted. This margin is an empirical mechanism setting, not calibration or a
 formal guarantee. One H100 producer, CPU exact-action replay, and strict
 validator will report collision-free task success, warning/critic/intervention
 counts, endpoint preservation, abstention, and video.
+
+H100 producer `42148`, CPU exact-action replay `42150`, and validator `42153`
+complete ADR-0204 from immutable scientific commit
+`d6d7d277409ece422d42a72693be8ad49ee43328`. The complete scientific view
+reproduces exactly. Nominal-first warning gating fixes ADR-0203's over-control:
+the episode reaches four VLA queries and invokes the critic only once, with one
+intervention and three nominal selections, rather than intervening at all 60
+queries. The warning activates at primary slack `0.399587`; nominal is rejected,
+two detours pass the empirical margin, and the selected
+`detour_normal_m1_r1.0` branch has exact zero-sum endpoint correction and
+predicted primary risk `-0.238413`.
+
+The selected branch is nevertheless a physical false-safe. Raw
+`gripper0_hand_collision` contact with `wine_bottle_obstacle_1_g15` begins at
+action `17` substep `14`, before the detour-and-rejoin profile completes; paper
+CAR fails at action `17`, native task success is false, and collision-free task
+success is false. The run stops after `18` actions. This is a clean NO-GO for
+scoring the newly introduced temporal detour family with the frozen ADR-0201
+critic: the critic was supervised on a different candidate profile and cannot
+be assumed to transfer to endpoint-preserving temporal reshaping. Do not tune
+the warning threshold or margin on E15 and do not scale this combination. A
+zero-retraining follow-up must retain the temporal candidate family represented
+in ADR-0201; alternatively, endpoint-preserving detours require separately
+frozen matched supervision and untouched evaluation. Validation/video SHA-256
+values are
+`7dffe6fb60f177843b66c03ad421ffdbf929532daef9d6c39cbecbc0e82d88d9` and
+`867b848586894926b233dadf018466a1674156822a999d54a7516b03999e84cc`.
