@@ -6707,3 +6707,36 @@ earlier VLA query, then require an exact local safe witness before using that
 state to judge the gradient against random. Validation file/payload SHA-256
 values are `db7a4f333dce2c4f52b3f3e4f427090c566c1c546f764de4c5d44e1f589f4bd4`
 and `b54e8312e5c4ebf3c6c88fb514472ae640b34202cb36e549f446402c280b25d6`.
+
+### ADR-0209 test the unchanged critic exactly one VLA query earlier
+
+- Status: preregistered; execution pending
+- Date: 2026-08-18
+
+Use the same already-opened E39/E44 validation roots and move exactly one
+five-action query earlier. This is the smallest experiment that can separate
+"intervention was too late" from "the frozen critic gradient is not a useful
+control direction." Keep the immutable ADR-0201 compact critic, primary tight
+palm/finger/L5 rows, archived matched nominal action source, direct unchanged
+OSC, 0.25 XYZ L2 trust radius, CAR/contact authorities, and five-action horizon.
+
+Do not infer support from timing alone. Before gradient execution, require the
+early state to be initially primary-safe and contact-free, the exact nominal
+five-action prefix to be safe and CAR-valid, and the frozen critic warning to
+fire using the ADR-0201 validation near-boundary RMSE as the fixed margin. This
+provides an exact local safe witness at distance zero while testing whether the
+critic can improve margin before the state becomes unrecoverable.
+
+For each eligible state compare one negative-gradient probe against its exact
+positive opposite and four deterministic equal-norm random probes. Require
+exact-safe negative guidance, exact descent, down-versus-up success on every
+eligible state, at least 75% wins over random, negative median risk change,
+H100 frozen-prediction agreement, symmetric unclipped actions, exact replay,
+certified primitives, and zero represented-geometry physical false-safes.
+
+This preregistration forbids new policy queries, retraining, architecture/loss
+changes, radius/threshold tuning, backups in labels, analytical hybrids, QP,
+flow/denoising, test use, closed loop, and formal claims. If the gate fails or
+has no eligible root, stop this frozen-critic guidance line rather than repeat
+timing search. A pass confirms only local earlier-query gradient feasibility
+and still requires a separately designed control experiment.

@@ -7152,3 +7152,30 @@ an earlier VLA query and establish a locally recoverable target there before
 judging bounded guidance. Validation file/payload SHA-256 values are
 `db7a4f333dce2c4f52b3f3e4f427090c566c1c546f764de4c5d44e1f589f4bd4` and
 `b54e8312e5c4ebf3c6c88fb514472ae640b34202cb36e549f446402c280b25d6`.
+
+ADR-0209 preregisters the direct earlier-intervention mechanism test requested
+after ADR-0208. It changes only the VLA query time in the same two opened
+validation roots: E39 moves from step 185 to 180 and E44 from step 25 to 20.
+The archived matched post-AEGIS nominal is retained because it is the action
+distribution on which ADR-0201 was fitted; no new policy query is made and no
+QP is applied to a probe.
+
+For each root, exact five-action execution first determines eligibility. The
+snapshot must be tight palm/finger/L5 safe and contact-free, the nominal prefix
+must be exact-safe and pass CAR, and the frozen hard critic prediction must be
+above the fixed warning boundary `-0.1421400248048467`. Only an eligible root
+receives six new equal-norm probes inside the unchanged XYZ L2 radius `0.25`:
+negative critic gradient, positive gradient, and four deterministic random
+directions. All use unchanged OSC and stop after five actions. There is no
+backup label, continuation, training, model/threshold/radius tuning, analytical
+hybrid, QP, denoising, full episode, test use, or generic collection.
+
+The hypothesis passes only if at least one root is eligible, negative-gradient
+execution remains exact-safe and lowers exact risk on every eligible root,
+beats the positive direction on every eligible root, beats at least 75% of the
+matched random probes, and has negative median risk change under exact
+independent replay. If no root is eligible or any scientific gate fails, stop
+the current frozen-critic early-guidance hypothesis rather than selecting
+another time, enlarging the radius, or retraining on these roots. Even a pass
+is local mechanism evidence only and does not authorize deployment, a full
+episode, or a safety/CBF claim.
