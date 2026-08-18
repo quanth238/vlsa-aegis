@@ -299,7 +299,7 @@ def _load_bound_artifacts(
             _file_sha256(path) == selected["tight_case_file_sha256"]
             and record.get("schema_version") == DATASET_CASE_SCHEMA
             and record.get("case_id") == selected["case_id"]
-            and record.get("split") == "validation"
+            and record.get("split") == selected.get("split", "validation")
             and record.get("result_payload_sha256") == dataset_payload(record),
             "oracle-flow-gradient exact case artifact differs",
         )

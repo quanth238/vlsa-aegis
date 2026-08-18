@@ -6950,3 +6950,32 @@ rather than search opened roots until a pass appears. Validation file/payload
 SHA-256 values are
 `5280d49a12136367c0c3312ea05a6530c6a2e175cbbd4e09f79c70792117719a` and
 `27505f332e5fdd699e887c6c4d9344351a6f08fde41230609213d00c74566b85`.
+
+### ADR-0213 run one exact-action-replayed unsafe-terminal decision
+
+- Status: preregistered
+- Date: 2026-08-19
+
+Do not search another population. Bind the already-opened E15 step-65 warning
+query, whose immutable ordinary no-QP prefix is L5-unsafe, and regenerate the
+actual ordinary terminal pi0.5 chunk once. Exact tight palm/finger/L5 rollout
+must confirm that this newly terminalized action is unsafe. If it is safe, the
+case is unsuitable and the producer stops without finite differences.
+
+At the same raw terminal action, compose both the exact simulator target and
+frozen 17D critic with the final two pi0.5 flow steps and estimate their 15D
+central gradients with epsilon `0.005`. Apply exact-oracle descent at only four
+registered norms up to the unchanged `0.25` trust radius. Require one action to
+be exact safe before comparing learned descent, oracle ascent, or random
+directions. Use the smallest safe oracle radius and make all comparison
+directions equal norm in the late-flow branch coordinates.
+
+Generate terminal arrays only inside the single H100 producer. Save raw,
+finite-difference, oracle-line, and—only when eligible—comparison arrays in the
+result. The CPU replay must use those exact arrays and must not load a policy
+server. Interpret exact replayed outcomes before any next action: oracle safe
+and learned unsafe identifies critic-gradient failure; both safe is the only
+path to a tiny full-episode pilot; no oracle-safe action means the local
+correction premise fails at this query and intervention must move earlier.
+Never retrain, add QP, scale collection, or open a full episode inside this
+decision.

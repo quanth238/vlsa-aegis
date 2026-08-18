@@ -1,0 +1,83 @@
+{
+  "schema_version": "vlsa_tight_prefix_single_oracle_gradient.v1",
+  "protocol_id": "vlsa-tight-prefix-single-oracle-gradient-v1",
+  "claim_scope": "One opened Spatial-I E15 warning-query mechanism test. Confirm the actual terminalized raw pi0.5 five-action chunk is exact tight-palm/finger/L5 unsafe; estimate exact and frozen-17D learned late-flow gradients at that same action; require an exact-safe oracle correction inside radius 0.25 before executing equal-norm learned, opposite and random controls. Generate terminal actions only in the producer and replay those exact arrays on CPU. This is not training, generalization, deployment, full-episode, safety or CBF evidence.",
+  "source": {
+    "tight_dataset_config": "configs/vlsa_tight_prefix_risk_dataset.v1.json",
+    "tight_dataset_config_file_sha256": "6166642e72d884f8107295ef51e770da46df4cec69fda83abf626cb9a99ce8c0",
+    "tight_dataset_config_payload_sha256": "4c1cf9c8e17ad946b0acc3111f17eb52831a507e5964024ccb41e7465a91260e",
+    "tight_dataset_producer_dir": "/mnt/data/quanth/experiments/vlsa-tight-prefix-risk/tight-prefix-risk-20260817a/producer-canary",
+    "tight_dataset_validation": "/mnt/data/quanth/experiments/vlsa-tight-prefix-risk/tight-prefix-risk-20260817a/validation.json",
+    "tight_dataset_validation_file_sha256": "96b52b5a494351ca8e5f27d32908d4072cfbda8a5f63a4d37e38449ddfaf1ff5",
+    "tight_dataset_validation_payload_sha256": "85bc470ca24587d54b0b6cf622edb67c5ac1b7b69f217ea528023e5919721c42",
+    "obstacle_frame_training_config": "configs/vlsa_tight_prefix_obstacle_frame_q.v1.json",
+    "obstacle_frame_training_config_file_sha256": "7bbc99c91eade5dd679ed459f4bd9cbd10f1df236baccae414abe2722091dccd",
+    "obstacle_frame_result": "/mnt/data/quanth/experiments/vlsa-tight-prefix-obstacle-frame-q/obstacle-frame-q-20260819b/producer.json",
+    "obstacle_frame_result_file_sha256": "bed361d3b1f7f7c07f50cb5253709071e4aa9ee6282e65fb5ca76b1a84a9c70a",
+    "obstacle_frame_result_payload_sha256": "4b09992d1a5624d473f486d58384370766aa4c675e83ea59b0382270d061bbc9",
+    "obstacle_frame_model_sha256": "a8276fa8c9d5dec95e4fb4592d758f13088ecd2b86d3a88b7e8d1fb086daaed0",
+    "obstacle_frame_validation": "/mnt/data/quanth/experiments/vlsa-tight-prefix-obstacle-frame-q/obstacle-frame-q-20260819b/validation.json",
+    "obstacle_frame_validation_file_sha256": "656bbedd1a629bf6c98b739c436b27ef54aca8885a018141c93755f905899174",
+    "obstacle_frame_validation_payload_sha256": "b56abdf6e3823b5a1b4a9f42a24d54ca73a10942efc44349ff444d30077936ff",
+    "terminal_sampler_validation": "/mnt/data/quanth/experiments/vlsa-terminal-branch-sampler-canary/terminal-branch-sampler-canary-20260817c/validation.json",
+    "terminal_sampler_validation_file_sha256": "0e97f798ec2c1d1138c06a5c102b85b80bd5e468603104ed1c739311d95bb181",
+    "terminal_sampler_validation_payload_sha256": "65d8d293d7a8b5b50d313e5cf7cfb9b2165700c278e26034fe2cb2a7b1b22d2b"
+  },
+  "case": {
+    "case_id": "vlsa-t1-spatial-i-t3-e15",
+    "state_step": 65,
+    "split": "opened_diagnostic_test",
+    "tight_dataset_case_index": 22,
+    "tight_case_file_sha256": "7008b85902230a4ab24acd53867a128c8a5566580f962ab34290b1a89bf7cfab",
+    "tight_case_payload_sha256": "e22f5cc3de3f0f008369f1723c7c257c6d183c1a9cce3b3c58dd165d6851f00e"
+  },
+  "flow": {
+    "sampler_steps": 10,
+    "branch_after_euler_step": 8,
+    "remaining_euler_steps": 2,
+    "optimized_action_slots": 5,
+    "optimized_coordinates": [0, 1, 2],
+    "branch_coordinates": "physical_output_action_displacement_scale_only",
+    "execution": "terminalize_once_then_clip_XYZ_then_unchanged_OSC_five_actions"
+  },
+  "finite_difference": {
+    "dimension": 15,
+    "epsilon": 0.005,
+    "scheme": "central",
+    "exact_objective": "hard_max_over_primary_row_future_risks",
+    "learned_objective": "beta20_logmeanexp_over_frozen_17D_primary_row_predictions",
+    "primary_rows": [0, 1, 2, 3, 4, 5, 6, 7],
+    "diagnostic_rows": [8, 9]
+  },
+  "support": {
+    "correction_radius_l2": 0.25,
+    "oracle_line_radii_l2": [0.0625, 0.125, 0.1875, 0.25],
+    "raw_unsafe_definition": "hard_primary_future_risk_gt_zero",
+    "safe_definition": "hard_primary_future_risk_le_zero_and_no_primary_contact_and_CAR_pass",
+    "select_safe_witness": "smallest_registered_oracle_radius"
+  },
+  "comparison": {
+    "direction_names": ["learned_down", "oracle_down", "oracle_up", "random_0", "random_1", "random_2", "random_3"],
+    "random_seed": 20260819,
+    "equal_norm": "selected_exact_safe_oracle_witness_radius",
+    "same_state_seed_flow_OSC_horizon": true
+  },
+  "gate": {
+    "require_raw_terminal_unsafe": true,
+    "require_exact_safe_oracle_within_radius": true,
+    "require_exact_action_replay": true,
+    "maximum_exact_replay_absolute_error": 1e-9,
+    "maximum_physical_false_safe_count": 0,
+    "paper_CAR_threshold_m": 0.001
+  },
+  "forbidden": [
+    "model_training_or_checkpoint_change",
+    "new_state_or_candidate_collection",
+    "test_population_claim_or_tuning",
+    "released_or_learned_QP",
+    "analytical_hybrid",
+    "full_episode_or_closed_loop",
+    "regenerate_terminal_actions_in_replay",
+    "deployment_or_formal_safety_or_CBF_claim"
+  ]
+}

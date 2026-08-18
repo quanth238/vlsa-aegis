@@ -7370,3 +7370,29 @@ validation artifact is
 file/payload SHA-256 values are
 `5280d49a12136367c0c3312ea05a6530c6a2e175cbbd4e09f79c70792117719a` and
 `27505f332e5fdd699e887c6c4d9344351a6f08fde41230609213d00c74566b85`.
+
+ADR-0213 preregisters the corrected one-case decision requested after the
+ADR-0212 unsuitable population. Use only already-opened Spatial-I E15 at query
+step 65 because its immutable direct no-QP nominal prefix has primary L5 risk
+`+0.1456986` and the state contains exact-safe counterfactuals. This is an
+opened mechanism diagnostic, not test generalization. The newly generated
+ordinary terminal pi0.5 chunk must itself reproduce positive tight
+palm/finger/L5 risk; otherwise stop after that one exact rollout.
+
+If raw terminal risk is positive, estimate exact and frozen-17D learned
+gradients in the same 15 late-flow five-action XYZ coordinates with centered
+`0.005` probes. Test exact-oracle descent only at frozen L2 radii
+`[0.0625, 0.125, 0.1875, 0.25]`. If none is exact safe across every primary row,
+raw contacts, and CAR, stop and conclude local correction is unavailable at
+this query/radius. Only the smallest safe oracle radius authorizes equal-norm
+learned descent, the identical saved oracle action, oracle ascent, and four
+fixed random controls.
+
+The H100 producer generates every terminal action array once and writes all
+bytes atomically. A dependent CPU replica makes no policy query and executes
+only those frozen arrays. Exact action-bundle and scientific-view replay are
+mandatory. Oracle safe with learned unsafe diagnoses the critic/action
+gradient; both safe may authorize only a separately frozen tiny full-episode
+every-query pilot; oracle unsafe requires earlier intervention. No training,
+QP, broad state search, collection, full episode, or threshold/radius tuning is
+part of ADR-0213.
