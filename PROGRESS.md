@@ -7348,3 +7348,25 @@ immutable `apparatus_no_go` artifact with the numeric error and all failed
 checks. Do not rerun either completed simulator replica, relax the `1e-9`
 replay tolerance, or reinterpret the agreed zero-eligible classification as a
 passed scientific result.
+
+CPU validator `42747` records the completed ADR-0212 result without rerunning
+simulation. Its status is `apparatus_no_go`: producer/replay schemas, payloads,
+sources, configs, replicas, and case-level gate classifications all pass, but
+the regenerated terminal-action scientific views are not exact and their
+maximum numeric difference is `0.0077934265`, above the frozen `1e-9` limit.
+The two replicas nevertheless agree that E39 and E44 have no hard-risk-unsafe
+terminal candidate, so the exact finite-difference, learned direction, oracle
+direction, random controls, and safe-conversion test were never entered. E39
+has 13/13 hard-risk-safe branches, of which 9/13 also pass the CAR acceptance
+rule; E44 and far-safe control E05 are 13/13 physical/CAR safe. There are zero
+represented-geometry physical false-safes.
+
+ADR-0212 therefore does not confirm or reject gradient guidance: the selected
+late-flow anchors do not expose an unsafe local action to correct, and strict
+independent replay also fails. Stop here rather than sweep more states or MLPs.
+No critic retraining, QP, correction, or full episode is authorized. The
+validation artifact is
+`/mnt/data/quanth/experiments/vlsa-tight-prefix-oracle-flow-gradient/oracle-flow-gradient-canary-20260819b/validation-apparatus-no-go.json`;
+file/payload SHA-256 values are
+`5280d49a12136367c0c3312ea05a6530c6a2e175cbbd4e09f79c70792117719a` and
+`27505f332e5fdd699e887c6c4d9344351a6f08fde41230609213d00c74566b85`.

@@ -6919,3 +6919,34 @@ apparatus gates. This canary does not authorize learned correction or a full
 episode; it only decides whether the continuous action-field premise is worth
 an expanded oracle study. No training, QP, tuning, continuation, or live
 episode execution is allowed.
+
+### ADR-0212 result: the registered late-flow roots have no unsafe local anchor
+
+- Status: completed; apparatus NO-GO and correction not tested
+- Date: 2026-08-19
+
+After adapter-only jobs `42736/42737`, paired H100 producer/replay jobs
+`42740/42741` evaluate the frozen three-root protocol. Both replicas agree on
+the decisive eligibility result. Terminalizing the frozen bank at flow step
+8/10 makes all 13 E39 branches hard-risk safe and all 13 E44 branches
+hard-risk safe. Nine E39 branches also pass CAR; the other four fail only that
+acceptance rule. E44 and preregistered far-safe E05 are 13/13 physical/CAR
+safe. No represented-geometry physical false-safe occurs.
+
+Consequently there is no adjacent unsafe/safe terminal crossing, so the
+15-dimensional finite-difference field and learned/oracle/random corrections
+are not evaluated. This does not show that gradient guidance works or fails;
+it shows that these previously useful post-hoc boundaries are not boundaries
+after late-flow terminalization. They cannot answer the collision-avoidance
+question.
+
+Independent regenerated H100 terminal actions are also not bit-exact. CPU
+validator `42747` records maximum numeric disagreement `0.0077934265`, above
+the preregistered `1e-9` tolerance, while all artifact bindings and qualitative
+case gates agree. Retain the strict gate and label the experiment
+`apparatus_no_go`; do not average replicas or relax the threshold after seeing
+outcomes. No training, QP, correction, or full episode is authorized. Stop
+rather than search opened roots until a pass appears. Validation file/payload
+SHA-256 values are
+`5280d49a12136367c0c3312ea05a6530c6a2e175cbbd4e09f79c70792117719a` and
+`27505f332e5fdd699e887c6c4d9344351a6f08fde41230609213d00c74566b85`.
