@@ -7092,3 +7092,11 @@ use unchanged OSC and exact tight palm/finger/L5 risk, and stop after five
 actions. No state collection, policy query, model fit, QP, denoising,
 continuation, test split, or full episode is included. Paired H100 replicas and
 a CPU validator are the next commands.
+
+Initial ADR-0207 arrays `42550/42551` fail before simulator execution because
+the SafeLIBERO simulation environment's legacy PyTorch build cannot create an
+H100 CUBLAS handle; dependent validator `42552` is dependency-impossible. The
+apparatus-only repair computes the identical frozen float32 gradient in the
+H100-compatible OpenPI Python, writes immutable action definitions, then invokes
+the unchanged SafeLIBERO Python only to execute those definitions in the same
+allocation. It changes no anchor, radius, random seed, action, label, or gate.

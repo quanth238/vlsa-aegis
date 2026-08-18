@@ -9,6 +9,7 @@ import json
 import math
 import os
 import socket
+import subprocess
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
 
@@ -19,17 +20,21 @@ from scripts.replay_distal_three_ellipsoid_multicbf import (
 from scripts.train_tight_prefix_risk_q_diagnostic import load_samples
 
 
-def _allocation_record(torch: Any) -> dict[str, Any]:
+def _allocation_record() -> dict[str, Any]:
     _require(os.environ.get("SLURM_JOB_ID") is not None,
              "tight gradient-probe requires Slurm")
-    _require(torch.cuda.is_available(),
-             "tight gradient-probe requires allocated CUDA")
-    device_name = str(torch.cuda.get_device_name(0))
-    _require("H100" in device_name, "tight gradient-probe requires H100")
+    device_lines = subprocess.run(
+        ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader,nounits"],
+        check=True, capture_output=True, text=True,
+    ).stdout.strip().splitlines()
+    _require(
+        len(device_lines) == 1 and "H100" in device_lines[0],
+        "tight gradient-probe requires one H100",
+    )
     return {
         "slurm_job_id": os.environ["SLURM_JOB_ID"],
         "host": socket.gethostname(),
-        "device": device_name,
+        "device": device_lines[0],
         "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
         "slurm_cpus_per_task": os.environ.get("SLURM_CPUS_PER_TASK"),
         "slurm_mem_per_node": os.environ.get("SLURM_MEM_PER_NODE"),
@@ -260,33 +265,26 @@ def _primary_risk(candidate: Mapping[str, Any], primary_rows: Sequence[int]) -> 
     return float(max(row_future_risks(candidate, primary_rows)))
 
 
-def evaluate_case(
+def generate_definitions(
     *, repo_root: Path, config_path: Path, case_index: int,
     expected_commit: str,
 ) -> dict[str, Any]:
+    """Generate frozen H100 gradients and symmetric actions without simulation."""
     import numpy as np
     import torch
     from main.multilink_ellipsoid.tight_prefix_gradient_probe import (
-        CASE_SCHEMA, load_config, payload_sha256, symmetric_probe_actions,
-    )
-    from main.multilink_ellipsoid.tight_prefix_risk_dataset import (
-        load_config as load_dataset_config,
+        load_config, payload_sha256, symmetric_probe_actions,
     )
 
     config = load_config(config_path)
     _require(0 <= int(case_index) < len(config["cases"]),
              "tight gradient-probe case index differs")
-    training_config, dataset_config, trained, artifacts = _load_sources(
+    training_config, _, trained, artifacts = _load_sources(
         repo_root=repo_root, config=config,
     )
     selected = config["cases"][int(case_index)]
     case_id = str(selected["case_id"])
-    exact_record = artifacts[case_id]
-    exact_case = exact_record["case"]
-    case_config = next(
-        item for item in dataset_config["cases"]
-        if str(item["case_id"]) == case_id
-    )
+    exact_case = artifacts[case_id]["case"]
     bundle = _model_bundle(
         torch=torch, training_config=training_config, trained=trained,
     )
@@ -337,9 +335,8 @@ def evaluate_case(
         )
         anchor_key = "anchor-%d" % int(anchor_order)
         for probe_name in config["probe"]["probe_names"]:
-            name = anchor_key + "__" + str(probe_name)
             overrides.append({
-                "name": name,
+                "name": anchor_key + "__" + str(probe_name),
                 "actions": probes[str(probe_name)],
                 "requested_alpha": float(probes["radius_l2_action"]),
                 "effective_correction_l2_action": float(
@@ -359,6 +356,66 @@ def evaluate_case(
             "critic": critic,
             "probe_construction": probes,
         })
+    output = {
+        "schema_version": "vlsa_tight_prefix_gradient_probe_definitions.v1",
+        "status": "complete_H100_gradient_definitions",
+        "source": _git_identity(repo_root, expected_commit),
+        "case_index": int(case_index),
+        "case_id": case_id,
+        "config_file_sha256": config["config_file_sha256"],
+        "config_payload_sha256": config["config_payload_sha256"],
+        "model_sha256": bundle["model_sha256"],
+        "anchor_records": anchor_records,
+        "action_overrides": overrides,
+        "simulator_rollout_count": 0,
+    }
+    output["result_payload_sha256"] = payload_sha256(
+        output, "result_payload_sha256",
+    )
+    return output
+
+
+def evaluate_case(
+    *, repo_root: Path, config_path: Path, case_index: int,
+    expected_commit: str, definitions_path: Path,
+) -> dict[str, Any]:
+    from main.multilink_ellipsoid.tight_prefix_gradient_probe import (
+        CASE_SCHEMA, load_config, payload_sha256,
+    )
+
+    config = load_config(config_path)
+    _require(0 <= int(case_index) < len(config["cases"]),
+             "tight gradient-probe case index differs")
+    _, dataset_config, _, artifacts = _load_sources(
+        repo_root=repo_root, config=config,
+    )
+    selected = config["cases"][int(case_index)]
+    case_id = str(selected["case_id"])
+    exact_record = artifacts[case_id]
+    exact_case = exact_record["case"]
+    case_config = next(
+        item for item in dataset_config["cases"]
+        if str(item["case_id"]) == case_id
+    )
+    primary_rows = [int(row) for row in config["probe"]["primary_rows"]]
+    definitions = _load(definitions_path)
+    _require(
+        definitions.get("schema_version")
+        == "vlsa_tight_prefix_gradient_probe_definitions.v1"
+        and definitions.get("source", {}).get("commit") == expected_commit
+        and definitions.get("case_index") == int(case_index)
+        and definitions.get("case_id") == case_id
+        and definitions.get("config_file_sha256")
+        == config["config_file_sha256"]
+        and definitions.get("config_payload_sha256")
+        == config["config_payload_sha256"]
+        and definitions.get("model_sha256") == config["source"]["model_sha256"]
+        and definitions.get("result_payload_sha256")
+        == payload_sha256(definitions, "result_payload_sha256"),
+        "tight gradient-probe definitions differ",
+    )
+    anchor_records = definitions["anchor_records"]
+    overrides = definitions["action_overrides"]
     replay_case_config = dict(case_config)
     replay_case_config["candidate_names"] = [item["name"] for item in overrides]
     replay_case_config["slab_initialization"] = "query_state_matching_source"
@@ -415,13 +472,13 @@ def evaluate_case(
         "scientific_result": True,
         "claim_scope": config["claim_scope"],
         "source": _git_identity(repo_root, expected_commit),
-        "allocation": _allocation_record(torch),
+        "allocation": _allocation_record(),
         "case_index": int(case_index),
         "case_id": case_id,
         "split": "validation",
         "config_file_sha256": config["config_file_sha256"],
         "config_payload_sha256": config["config_payload_sha256"],
-        "model_sha256": bundle["model_sha256"],
+        "model_sha256": definitions["model_sha256"],
         "anchor_records": anchor_records,
         "exact_rollout": evaluated,
         "new_simulator_rollout_count": len(overrides),
@@ -442,29 +499,51 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--case-index", type=int, required=True)
     parser.add_argument("--expected-commit", required=True)
+    parser.add_argument(
+        "--mode", choices=("generate", "evaluate"), required=True,
+    )
+    parser.add_argument("--definitions", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
-    result = evaluate_case(
-        repo_root=args.repo_root.resolve(), config_path=args.config.resolve(),
-        case_index=args.case_index, expected_commit=args.expected_commit,
-    )
+    if args.mode == "generate":
+        _require(args.definitions is None,
+                 "tight gradient-probe generation definitions differ")
+        result = generate_definitions(
+            repo_root=args.repo_root.resolve(), config_path=args.config.resolve(),
+            case_index=args.case_index, expected_commit=args.expected_commit,
+        )
+    else:
+        _require(args.definitions is not None,
+                 "tight gradient-probe evaluation definitions are absent")
+        result = evaluate_case(
+            repo_root=args.repo_root.resolve(), config_path=args.config.resolve(),
+            case_index=args.case_index, expected_commit=args.expected_commit,
+            definitions_path=args.definitions.resolve(),
+        )
     _atomic_write(args.output.resolve(), result)
-    print(json.dumps({
+    summary = {
+        "mode": args.mode,
         "case_id": result["case_id"],
         "anchor_count": len(result["anchor_records"]),
-        "new_simulator_rollout_count": result["new_simulator_rollout_count"],
-        "anchor_summary": [
-            {
-                "anchor": item["anchor_name"],
-                "anchor_risk": item["anchor_true_primary_risk"],
-                "probe_risk": item["exact_probe_primary_risk"],
-                "direction_correct": item["direction_correct"],
-                "descent": item["gradient_down_descends"],
-            }
-            for item in result["anchor_records"]
-        ],
         "result_payload_sha256": result["result_payload_sha256"],
-    }, sort_keys=True), flush=True)
+    }
+    if args.mode == "evaluate":
+        summary.update({
+            "new_simulator_rollout_count": result[
+                "new_simulator_rollout_count"
+            ],
+            "anchor_summary": [
+                {
+                    "anchor": item["anchor_name"],
+                    "anchor_risk": item["anchor_true_primary_risk"],
+                    "probe_risk": item["exact_probe_primary_risk"],
+                    "direction_correct": item["direction_correct"],
+                    "descent": item["gradient_down_descends"],
+                }
+                for item in result["anchor_records"]
+            ],
+        })
+    print(json.dumps(summary, sort_keys=True), flush=True)
     return 0
 
 
