@@ -6888,3 +6888,34 @@ artifact is
 file/payload SHA-256 values are
 `656bbedd1a629bf6c98b739c436b27ef54aca8885a018141c93755f905899174` and
 `b56abdf6e3823b5a1b4a9f42a24d54ca73a10942efc44349ff444d30077936ff`.
+
+### ADR-0212 test the physical action field before changing the critic again
+
+- Status: preregistered
+- Date: 2026-08-19
+
+Stop comparing additional MLP representations. First determine whether a
+useful continuous local correction direction physically exists near a known
+safe/unsafe boundary. Use only opened validation roots E39 and E44 plus far-safe
+control E05, the frozen 13-bank, the validated terminal branch sampler, tight
+palm/finger/L5 geometry, unchanged clipping and OSC, and the immutable frozen
+ADR-0211 critic. Test access and new data collection are forbidden.
+
+At late flow step 8/10, terminalize the fixed bank and choose the closest exact
+unsafe/safe pair. Interpolate it with eight fixed segments and accept only an
+adjacent crossing whose 15D translation distance is between `0.01` and `0.25`.
+Around the localized unsafe anchor, estimate an exact hard-max risk gradient
+and the frozen learned gradient by symmetric finite differences in all 15
+five-action XYZ coordinates. Execute equal-norm learned descent, oracle
+descent, oracle ascent, and four deterministic random terminal branches from
+the identical restored state.
+
+Require at least one eligible boundary root. Oracle descent must lower exact
+risk and beat oracle ascent on every eligible root, beat at least 75% of random
+directions, and make at least one unsafe anchor exactly safe. Exact independent
+scientific replay, terminal-input and restored-state equality, complete
+per-row outputs, and zero represented-geometry physical false-safes are hard
+apparatus gates. This canary does not authorize learned correction or a full
+episode; it only decides whether the continuous action-field premise is worth
+an expanded oracle study. No training, QP, tuning, continuation, or live
+episode execution is allowed.

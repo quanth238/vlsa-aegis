@@ -7299,3 +7299,25 @@ full-episode every-query guidance were not run and remain unauthorized; doing
 so would not test a viable steering signal. Validation file/payload SHA-256
 values are `656bbedd1a629bf6c98b739c436b27ef54aca8885a018141c93755f905899174`
 and `b56abdf6e3823b5a1b4a9f42a24d54ca73a10942efc44349ff444d30077936ff`.
+
+ADR-0212 preregisters one decisive physical-oracle action-field canary before
+any further critic training. It keeps the frozen ADR-0211 17D critic and uses
+only opened validation roots E39 and E44, with E05 as a far-safe apparatus
+control. At late flow step 8/10, the validated terminal branch sampler first
+terminalizes the frozen 13-action bank. An exact safe/unsafe adjacent pair is
+localized by eight fixed interpolation segments, and only a boundary with
+translation distance in `[0.01, 0.25]` is eligible.
+
+For each eligible root, central finite differences over the 15 five-action XYZ
+coordinates estimate both the exact hard-max tight-prefix risk gradient and
+the frozen critic gradient. Equal-norm terminal branches compare learned
+descent, exact-oracle descent, exact-oracle ascent, and four deterministic
+random directions. The canary passes only if oracle descent lowers exact risk
+and beats oracle ascent on every eligible root, beats at least 75% of random
+directions, and converts at least one localized unsafe anchor to exact safe.
+Exact independent replay, terminal-input equality, restored-state equality,
+zero represented-geometry physical false-safes, and UNKNOWN preservation are
+mandatory. No fitting, QP, continuation, live correction, full episode, test
+access, or new data collection is permitted. A pass authorizes only an
+expanded physical-oracle study; a failure rejects the local action-field
+hypothesis at this radius without blaming another MLP architecture.

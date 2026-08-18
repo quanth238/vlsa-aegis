@@ -1,0 +1,89 @@
+{
+  "schema_version": "vlsa_tight_prefix_oracle_flow_gradient.v1",
+  "protocol_id": "vlsa-tight-prefix-oracle-flow-gradient-v1",
+  "claim_scope": "Three-root validation canary that removes critic-learning error by estimating the exact cloned-OSC finite-difference gradient of hard tight-geometry five-action future risk at the same late pi0.5 flow branch. It compares the frozen 17D critic direction, exact oracle direction, opposite oracle and four equal-norm random controls. This is steering-mechanism evidence only, not training, deployment, full-episode, safety, or CBF evidence.",
+  "source": {
+    "tight_dataset_config": "configs/vlsa_tight_prefix_risk_dataset.v1.json",
+    "tight_dataset_config_file_sha256": "6166642e72d884f8107295ef51e770da46df4cec69fda83abf626cb9a99ce8c0",
+    "tight_dataset_config_payload_sha256": "4c1cf9c8e17ad946b0acc3111f17eb52831a507e5964024ccb41e7465a91260e",
+    "tight_dataset_producer_dir": "/mnt/data/quanth/experiments/vlsa-tight-prefix-risk/tight-prefix-risk-20260817a/producer-canary",
+    "tight_dataset_validation": "/mnt/data/quanth/experiments/vlsa-tight-prefix-risk/tight-prefix-risk-20260817a/validation.json",
+    "tight_dataset_validation_file_sha256": "96b52b5a494351ca8e5f27d32908d4072cfbda8a5f63a4d37e38449ddfaf1ff5",
+    "tight_dataset_validation_payload_sha256": "85bc470ca24587d54b0b6cf622edb67c5ac1b7b69f217ea528023e5919721c42",
+    "obstacle_frame_training_config": "configs/vlsa_tight_prefix_obstacle_frame_q.v1.json",
+    "obstacle_frame_training_config_file_sha256": "7bbc99c91eade5dd679ed459f4bd9cbd10f1df236baccae414abe2722091dccd",
+    "obstacle_frame_result": "/mnt/data/quanth/experiments/vlsa-tight-prefix-obstacle-frame-q/obstacle-frame-q-20260819b/producer.json",
+    "obstacle_frame_result_file_sha256": "bed361d3b1f7f7c07f50cb5253709071e4aa9ee6282e65fb5ca76b1a84a9c70a",
+    "obstacle_frame_result_payload_sha256": "4b09992d1a5624d473f486d58384370766aa4c675e83ea59b0382270d061bbc9",
+    "obstacle_frame_model_sha256": "a8276fa8c9d5dec95e4fb4592d758f13088ecd2b86d3a88b7e8d1fb086daaed0",
+    "obstacle_frame_validation": "/mnt/data/quanth/experiments/vlsa-tight-prefix-obstacle-frame-q/obstacle-frame-q-20260819b/validation.json",
+    "obstacle_frame_validation_file_sha256": "656bbedd1a629bf6c98b739c436b27ef54aca8885a018141c93755f905899174",
+    "obstacle_frame_validation_payload_sha256": "b56abdf6e3823b5a1b4a9f42a24d54ca73a10942efc44349ff444d30077936ff",
+    "terminal_sampler_validation": "/mnt/data/quanth/experiments/vlsa-terminal-branch-sampler-canary/terminal-branch-sampler-canary-20260817c/validation.json",
+    "terminal_sampler_validation_file_sha256": "0e97f798ec2c1d1138c06a5c102b85b80bd5e468603104ed1c739311d95bb181",
+    "terminal_sampler_validation_payload_sha256": "65d8d293d7a8b5b50d313e5cf7cfb9b2165700c278e26034fe2cb2a7b1b22d2b"
+  },
+  "cases": [
+    {"case_id":"vlsa-t1-goal-ii-t0-e39","state_step":185,"split":"validation","role":"boundary","tight_dataset_case_index":0,"tight_case_file_sha256":"268b34c6490b4888d1eab1493a845317c4547b6b2355da9af352b3fc8174e6ac"},
+    {"case_id":"vlsa-t1-goal-ii-t2-e44","state_step":25,"split":"validation","role":"boundary","tight_dataset_case_index":2,"tight_case_file_sha256":"f3b08731c8c95653b64b7ee2bc6c95214d129416be8a5afc29dc14b8ba60731a"},
+    {"case_id":"vlsa-t1-goal-ii-t0-e05","state_step":180,"split":"validation","role":"far_safe_control","tight_dataset_case_index":10,"tight_case_file_sha256":"6c44cc40868e5caf8d9d26130e41f2c5f56e852dfdb5f7f32d40c00c591d02a7"}
+  ],
+  "flow": {
+    "sampler_steps": 10,
+    "branch_after_euler_step": 8,
+    "remaining_euler_steps": 2,
+    "optimized_action_slots": 5,
+    "optimized_coordinates": [0,1,2],
+    "branch_coordinates": "physical_output_action_displacement_scale_only",
+    "execution": "terminalize_then_clip_XYZ_then_unchanged_OSC_five_actions"
+  },
+  "localization": {
+    "source_bank_candidate_count": 13,
+    "maximum_pair_distance_l2": 2.0,
+    "interpolation_segment_count": 8,
+    "maximum_local_witness_distance_l2": 0.25,
+    "minimum_local_witness_distance_l2": 0.01,
+    "unsafe_definition": "hard_primary_future_risk_gt_zero",
+    "safe_definition": "hard_primary_future_risk_le_zero_and_no_primary_contact_and_CAR_pass",
+    "pair_selection": "minimum_residual_distance_then_source_order",
+    "crossing_selection": "first_adjacent_unsafe_safe_segment"
+  },
+  "finite_difference": {
+    "dimension": 15,
+    "maximum_epsilon": 0.05,
+    "witness_fraction": 0.25,
+    "minimum_epsilon": 0.0025,
+    "scheme": "central",
+    "exact_objective": "hard_max_over_primary_row_future_risks",
+    "learned_objective": "beta20_logmeanexp_over_frozen_17D_primary_row_predictions",
+    "primary_rows": [0,1,2,3,4,5,6,7],
+    "diagnostic_rows": [8,9]
+  },
+  "comparison": {
+    "direction_names": ["learned_down","oracle_down","oracle_up","random_0","random_1","random_2","random_3"],
+    "random_seed": 20260819,
+    "equal_norm": "localized_safe_witness_distance_in_branch_coordinates",
+    "same_state_seed_flow_OSC_horizon": true
+  },
+  "gate": {
+    "required_case_count": 3,
+    "minimum_eligible_boundary_root_count": 1,
+    "require_oracle_descent_on_every_eligible_root": true,
+    "require_oracle_beats_opposite_on_every_eligible_root": true,
+    "minimum_oracle_random_advantage_rate": 0.75,
+    "minimum_oracle_safe_conversion_count": 1,
+    "maximum_independent_replay_absolute_error": 1e-9,
+    "maximum_physical_false_safe_count": 0,
+    "paper_CAR_threshold_m": 0.001
+  },
+  "forbidden": [
+    "model_training_or_checkpoint_change",
+    "new_model_architecture_or_loss",
+    "test_split_access",
+    "released_or_learned_QP",
+    "analytical_guidance",
+    "full_episode_or_closed_loop",
+    "validation_outcome_tuning",
+    "deployment_or_formal_safety_or_CBF_claim"
+  ]
+}
