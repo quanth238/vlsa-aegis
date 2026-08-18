@@ -414,8 +414,26 @@ def run(
                 == source["population_binding"]["selection"]["active_obstacle_name"],
                 "oracle-flow-gradient active obstacle differs",
             )
-            action_rows = {int(row["step"]): row for row in source["actions"]}
+            archived_binding = source["archived_table1"]
+            archived_path = Path(archived_binding["path"])
+            archived = _load(archived_path)
+            _require(
+                archived_binding.get("read_only") is True
+                and _file_sha256(archived_path)
+                == archived_binding["file_sha256"]
+                and archived.get("result_payload_sha256")
+                == archived_binding["result_payload_sha256"]
+                and archived.get("case_id") == case_id,
+                "oracle-flow-gradient archived action ledger differs",
+            )
+            action_rows = {
+                int(row["step"]): row for row in archived["actions"]
+            }
             state_step = int(selected["state_step"])
+            _require(
+                set(range(state_step)).issubset(action_rows),
+                "oracle-flow-gradient archived action prefix differs",
+            )
             for step in range(state_step):
                 observation, _, done, _ = env.step(action_rows[step]["executed"])
                 _require(not bool(done), "oracle-flow-gradient prefix ended early")

@@ -7321,3 +7321,13 @@ mandatory. No fitting, QP, continuation, live correction, full episode, test
 access, or new data collection is permitted. A pass authorizes only an
 expanded physical-oracle study; a failure rejects the local action-field
 hypothesis at this radius without blaming another MLP architecture.
+
+Initial ADR-0212 producer/replay jobs `42736/42737` stopped before any
+candidate simulation because the live-prefix adapter incorrectly looked for
+the action ledger inside the derived source-curve receipt. That receipt binds
+the immutable Table-1 episode through `archived_table1`; the action ledger
+lives in that bound artifact. Validator `42738` is dependency-impossible
+apparatus history. The repair loads and verifies only the already-bound
+Table-1 file/payload before replaying its identical prefix. Cases, flow step,
+bank, model, gradients, radii, simulator, and scientific gates are unchanged,
+and the replacement must use a new immutable root.
