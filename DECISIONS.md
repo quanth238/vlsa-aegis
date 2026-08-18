@@ -6663,3 +6663,30 @@ distribution or a stronger action representation; that is a new experiment,
 not threshold tuning of ADR-0207. Validation file/payload SHA-256 values are
 `deb9d18f1f3f97ce52c8fcedee702505d8c380a3ae2649ecc1bd6822862d81fd` and
 `128fc2be7bb4933af8d73b38f1da66b3ac65d72dbe4bfef548a0ea17c433ceb6`.
+
+### ADR-0208 audit exact local safe support before changing the critic
+
+- Status: preregistered
+- Date: 2026-08-18
+
+Do not infer critic failure from ADR-0207's `0/6` safe conversions until local
+control support is established. Reuse the immutable 24-state ADR-0200 producer
+artifacts and enumerate every candidate whose maximum tight primary row risk is
+positive. Within the same saved state, find its nearest known exact-safe action
+using L2 distance over the five XYZ actions. The target is reachable only when
+all remaining action components match to `1e-12` and the XYZ distance is at
+most `0.25` plus `1e-12`.
+
+Exact safe means all tight palm/finger/L5 row values are nonpositive, all
+represented primary contact counts are zero, and CAR passes `0.001` m. Report
+train, validation, and already-opened diagnostic test, but use validation only
+to choose the next branch. Audit the six ADR-0207 anchors explicitly and run
+two independent CPU replicas with byte-exact scientific views.
+
+If at least one unsafe validation anchor has such a target, authorize only a
+matched frozen-critic local support test on eligible anchors. Do not retrain
+yet. If no target exists, retraining cannot establish authority at those
+states; move the same learned-risk trigger and bounded gradient guidance to an
+earlier VLA query. No simulation, policy query, fit, architecture change, QP,
+analytical hybrid, flow guidance, generic collection, or test-based decision is
+part of this audit.

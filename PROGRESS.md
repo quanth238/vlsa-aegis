@@ -7117,3 +7117,20 @@ authority cannot avoid collision. QP, flow guidance, and full-episode scaling
 remain unauthorized. Validation file/payload SHA-256 values are
 `deb9d18f1f3f97ce52c8fcedee702505d8c380a3ae2649ecc1bd6822862d81fd` and
 `128fc2be7bb4933af8d73b38f1da66b3ac65d72dbe4bfef548a0ea17c433ceb6`.
+
+ADR-0208 corrects the interpretation before any retraining. It audits the
+immutable ADR-0200 labels to ask whether a primary-risk-unsafe action has an
+exact-safe action in the same saved state within the ADR-0207 translation-only
+`0.25` L2 correction ball. A safe target must keep all non-translation action
+components unchanged, have all tight palm/finger/L5 row risks at most zero,
+have no represented primary contact, and pass CAR. All train, validation and
+already-opened diagnostic-test splits are reported, but only validation makes
+the decision. The six ADR-0207 anchors are reported explicitly.
+
+This is a paired zero-simulation support audit, not a model or data change. If
+validation contains supported unsafe anchors, only those anchors may enter a
+subsequent frozen-critic versus random local search test. If it contains none,
+ADR-0207's zero safe conversions do not diagnose critic inability; the correct
+next experiment moves the unchanged trigger/guidance to an earlier VLA query.
+Retraining, QP, analytical guidance, new architecture, generic collection,
+policy queries, and new simulation are forbidden in this audit.

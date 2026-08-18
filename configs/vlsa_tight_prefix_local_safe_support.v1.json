@@ -1,0 +1,47 @@
+{
+  "schema_version": "vlsa_tight_prefix_local_safe_support.v1",
+  "protocol_id": "vlsa-tight-prefix-local-safe-support-v1",
+  "claim_scope": "Zero-simulation audit of whether immutable ADR-0200 unsafe five-action anchors already have an exact-safe candidate inside the ADR-0207 0.25 translation correction ball. This distinguishes critic-direction failure from absent local control support without retraining or new collection.",
+  "source": {
+    "dataset_config": "configs/vlsa_tight_prefix_risk_dataset.v1.json",
+    "dataset_config_file_sha256": "6166642e72d884f8107295ef51e770da46df4cec69fda83abf626cb9a99ce8c0",
+    "dataset_config_payload_sha256": "4c1cf9c8e17ad946b0acc3111f17eb52831a507e5964024ccb41e7465a91260e",
+    "dataset_producer_dir": "/mnt/data/quanth/experiments/vlsa-tight-prefix-risk/tight-prefix-risk-20260817a/producer-canary",
+    "dataset_validation": "/mnt/data/quanth/experiments/vlsa-tight-prefix-risk/tight-prefix-risk-20260817a/validation.json",
+    "dataset_validation_file_sha256": "96b52b5a494351ca8e5f27d32908d4072cfbda8a5f63a4d37e38449ddfaf1ff5",
+    "dataset_validation_payload_sha256": "85bc470ca24587d54b0b6cf622edb67c5ac1b7b69f217ea528023e5919721c42",
+    "dataset_artifact_commit": "e6cdc3f10674a0e9b8267f3f1aa0362f195b8fbd",
+    "frozen_critic_model_sha256": "135a97ba840b3299f4e8cd74c2d7e76f6b5e5a0938a6af0379a5258a9aed2102"
+  },
+  "audit": {
+    "report_splits": ["train", "validation", "test"],
+    "decision_split": "validation",
+    "test_status": "already_opened_diagnostic",
+    "primary_rows": [0, 1, 2, 3, 4, 5, 6, 7],
+    "diagnostic_rows": [8, 9],
+    "translation_correction_radius_l2_action": 0.25,
+    "distance_tolerance": 1e-12,
+    "non_translation_action_tolerance": 1e-12,
+    "anchor_definition": "maximum_primary_exact_row_Q_gt_0",
+    "safe_definition": "all_primary_exact_row_Q_le_0_and_no_primary_contact_and_CAR_pass",
+    "grouping": "complete_saved_state_and_candidate_chunk"
+  },
+  "prior_probe_anchors": [
+    {"case_id":"vlsa-t1-goal-ii-t0-e39","candidate_name":"grid_m1_m1_z0_front_loaded_r2.0"},
+    {"case_id":"vlsa-t1-goal-ii-t0-e39","candidate_name":"grid_z0_z0_p1_front_loaded_r2.0"},
+    {"case_id":"vlsa-t1-goal-ii-t2-e44","candidate_name":"grid_m1_m1_m1_front_loaded_r2.0"},
+    {"case_id":"vlsa-t1-goal-ii-t2-e44","candidate_name":"grid_m1_z0_m1_front_loaded_r2.0"},
+    {"case_id":"vlsa-t1-goal-ii-t2-e44","candidate_name":"grid_m1_p1_z0_front_loaded_r2.0"},
+    {"case_id":"vlsa-t1-goal-ii-t2-e44","candidate_name":"grid_z0_z0_m1_front_loaded_r2.0"}
+  ],
+  "forbidden": [
+    "new_simulator_rollout",
+    "new_policy_query_or_state_collection",
+    "training_or_architecture_change",
+    "QP_or_analytical_hybrid",
+    "flow_or_denoising_guidance",
+    "test_based_selection_or_tuning",
+    "generic_data_collection",
+    "formal_safety_or_CBF_claim"
+  ]
+}
