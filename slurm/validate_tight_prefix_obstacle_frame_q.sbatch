@@ -27,7 +27,8 @@ mkdir -p "$(dirname "$OUTPUT")"
 export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 export PYTHONPATH=$REMOTE_REPO/main:$REMOTE_REPO
 cd "$REMOTE_REPO"
-"$AEGIS_PYTHON" -m unittest tests.test_tight_prefix_obstacle_frame_q -v
+"$AEGIS_PYTHON" -m unittest discover -s tests \
+  -p 'test_tight_prefix_obstacle_frame_q.py' -v
 "$AEGIS_PYTHON" scripts/validate_tight_prefix_obstacle_frame_q.py \
   --repo-root "$REMOTE_REPO" --config "$CONFIG" \
   --producer "$PRODUCER" --replay "$REPLAY" \

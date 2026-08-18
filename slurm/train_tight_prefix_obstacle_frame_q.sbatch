@@ -30,7 +30,8 @@ export CUBLAS_WORKSPACE_CONFIG=:4096:8 PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERE
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 export PYTHONPATH=$REMOTE_REPO/safelibero:$REMOTE_REPO/main:$REMOTE_REPO
 cd "$REMOTE_REPO"
-"$AEGIS_PYTHON" -m unittest tests.test_tight_prefix_obstacle_frame_q -v
+"$AEGIS_PYTHON" -m unittest discover -s tests \
+  -p 'test_tight_prefix_obstacle_frame_q.py' -v
 "$AEGIS_PYTHON" scripts/train_tight_prefix_obstacle_frame_q.py \
   --repo-root "$REMOTE_REPO" --config "$CONFIG" \
   --expected-commit "$EXPECTED_GIT_COMMIT" --output "$OUTPUT"

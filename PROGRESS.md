@@ -7273,3 +7273,12 @@ execution. Only a Stage-2 true-risk descent/random-advantage pass authorizes
 Stage 3 paired full episodes with the frozen 17D critic scored at every VLA
 query. Stage 3 must jointly measure collision reduction and native task
 success; it cannot be authorized from scalar RMSE alone.
+
+Initial ADR-0211 trainer jobs `42665/42666` failed in one second before loading
+artifacts or fitting either arm because the remote Python environment cannot
+resolve the namespace-style direct module name
+`tests.test_tight_prefix_obstacle_frame_q`. Validator `42667` is therefore
+dependency-impossible apparatus history. Change only the Slurm preflight to
+the repository's established unittest-discovery form and use a new immutable
+run root; all data, representations, model settings, and scientific gates stay
+frozen.
