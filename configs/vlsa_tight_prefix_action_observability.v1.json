@@ -1,0 +1,49 @@
+{
+  "schema_version": "vlsa_tight_prefix_action_observability.v1",
+  "protocol_id": "vlsa-tight-prefix-action-observability-v1",
+  "claim_scope": "Small validation-only physical audit of whether equal-radius tangential five-action perturbations materially change exact tight-geometry future risk while the frozen 7D action representation is invariant for the active row. This is a representation test, not model training, correction, policy evaluation, or safety evidence.",
+  "source": {
+    "tight_dataset_config": "configs/vlsa_tight_prefix_risk_dataset.v1.json",
+    "tight_dataset_config_file_sha256": "6166642e72d884f8107295ef51e770da46df4cec69fda83abf626cb9a99ce8c0",
+    "tight_dataset_config_payload_sha256": "4c1cf9c8e17ad946b0acc3111f17eb52831a507e5964024ccb41e7465a91260e",
+    "tight_dataset_producer_dir": "/mnt/data/quanth/experiments/vlsa-tight-prefix-risk/tight-prefix-risk-20260817a/producer-canary",
+    "tight_dataset_validation": "/mnt/data/quanth/experiments/vlsa-tight-prefix-risk/tight-prefix-risk-20260817a/validation.json",
+    "tight_dataset_validation_file_sha256": "96b52b5a494351ca8e5f27d32908d4072cfbda8a5f63a4d37e38449ddfaf1ff5",
+    "tight_dataset_validation_payload_sha256": "85bc470ca24587d54b0b6cf622edb67c5ac1b7b69f217ea528023e5919721c42"
+  },
+  "cases": [
+    {"case_id":"vlsa-t1-goal-ii-t0-e39","split":"validation","tight_dataset_case_index":0,"tight_case_file_sha256":"268b34c6490b4888d1eab1493a845317c4547b6b2355da9af352b3fc8174e6ac"},
+    {"case_id":"vlsa-t1-goal-ii-t2-e44","split":"validation","tight_dataset_case_index":2,"tight_case_file_sha256":"f3b08731c8c95653b64b7ee2bc6c95214d129416be8a5afc29dc14b8ba60731a"},
+    {"case_id":"vlsa-t1-goal-ii-t0-e05","split":"validation","tight_dataset_case_index":10,"tight_case_file_sha256":"6c44cc40868e5caf8d9d26130e41f2c5f56e852dfdb5f7f32d40c00c591d02a7"},
+    {"case_id":"vlsa-t1-goal-ii-t3-e09","split":"validation","tight_dataset_case_index":15,"tight_case_file_sha256":"266310c67e2606efcae7e793793bdbb80a539258005f7a18fd43e085297a275f"}
+  ],
+  "perturbation": {
+    "basis": ["normal", "tangent_up", "tangent_side"],
+    "directions": ["normal_pos", "normal_neg", "tangent_up_pos", "tangent_up_neg", "tangent_side_pos", "tangent_side_neg"],
+    "temporal_profile": "front_loaded_unit_L2_5_4_3_2_1",
+    "maximum_translation_l2_action": 0.25,
+    "minimum_translation_l2_action": 0.01,
+    "symmetric_headroom_fraction": 0.8,
+    "action_limit": 1.0,
+    "primary_rows": [0,1,2,3,4,5,6,7],
+    "diagnostic_rows": [8,9],
+    "execution": "direct_effective_action_through_unchanged_OSC_five_actions_only"
+  },
+  "gate": {
+    "required_case_count": 4,
+    "minimum_structural_counterexample_count": 1,
+    "minimum_material_tangent_descent_case_count": 2,
+    "material_absolute_risk_change": 0.01,
+    "maximum_tangent_7D_feature_change": 1e-10,
+    "maximum_post_clipping_symmetry_error": 1e-12,
+    "maximum_independent_replay_absolute_error": 1e-9,
+    "maximum_physical_false_safe_count": 0,
+    "paper_car_threshold_m": 0.001,
+    "compiled_overlap_tolerance": 1e-10
+  },
+  "forbidden": [
+    "new_policy_query", "model_training_or_checkpoint_change", "test_split_use",
+    "released_or_learned_QP", "candidate_selection_for_control", "denoising_or_flow_guidance",
+    "backup_or_continuation", "full_episode_or_closed_loop", "formal_safety_or_CBF_claim"
+  ]
+}

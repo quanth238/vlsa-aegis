@@ -6768,3 +6768,31 @@ would require independent state coverage that demonstrates directional
 advantage, not another post hoc test on E39/E44. Validation file/payload SHA-256
 values are `6b128faa01089f71ec3b96183aef6a628e225f5238e52f63d38e13df1c06bb06`
 and `8af4b777aaf58ad2ca1b3b12978c090b574bddae8ea92ee889717d529f7fe522`.
+
+### ADR-0210 test action observability before directional retraining
+
+- Status: preregistered
+- Date: 2026-08-19
+
+Retain the controller-conditioned tight five-action future-risk target, but do
+not retrain the ADR-0201 7D critic yet. That representation contains current
+radial slack, one nominal outward projection, and five effective outward
+projections. For an individual row its action Jacobian is restricted to the
+row's obstacle normal, so pure tangent action effects are structurally absent.
+Global aggregation can combine several row normals but cannot restore tangent
+observability for a single active witness.
+
+Test this limitation physically on the four frozen validation roots only.
+From every identical snapshot execute nominal and symmetric `+/-normal`,
+`+/-tangent_up`, and `+/-tangent_side` branches at one common unclipped radius,
+front-loaded over five actions through unchanged OSC. Derive the radius before
+outcomes from symmetric bound headroom and cap it at the existing `0.25` trust
+radius. Record separate tight palm/finger/L5 rows, diagnostic L6 rows, contacts,
+and CAR. Run an independent replay and retain every result.
+
+Treat an active-row tangent risk change of magnitude at least `0.01` with 7D
+feature change at most `1e-10` as a structural counterexample. Require at least
+two roots with tangent descent of at least `0.01` before authorizing a 17D
+obstacle-frame action ablation. This gate tests representation only; it forbids
+training, policy queries, QP, candidate selection for control, continuation,
+test access, flow guidance, closed loop, and safety claims.

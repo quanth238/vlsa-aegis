@@ -7212,3 +7212,29 @@ random steering. Stop timing sweeps, full-episode guidance, QP, and retraining
 from these opened roots. Validation file/payload SHA-256 values are
 `6b128faa01089f71ec3b96183aef6a628e225f5238e52f63d38e13df1c06bb06` and
 `8af4b777aaf58ad2ca1b3b12978c090b574bddae8ea92ee889717d529f7fe522`.
+
+ADR-0210 preregisters the representation-level test required before any new
+critic fit. The current 7D tight-prefix feature exposes each five-action
+translation to a row critic only through five projections onto that row's
+center-to-obstacle normal. It therefore cannot distinguish a matched action
+whose correction is purely tangent to the active row, even when unchanged OSC
+dynamics make the resulting future risk different.
+
+Use only the four already-opened ADR-0200 validation snapshots E39, E44, E05,
+and E09. At each immutable state, reconstruct the closest primary tight row and
+its orthonormal normal/up-tangent/side-tangent frame. Execute nominal plus
+exactly six five-action branches: `+/-` each frame axis, all using the same
+front-loaded unit-L2 profile and a common radius no greater than `0.25`. Shrink
+the common radius using 80% symmetric action-bound headroom, require at least
+`0.01`, preserve rotation/gripper controls, run direct no-QP unchanged OSC,
+and stop after five actions. No policy query, continuation, model fit, test
+access, selection for control, denoising, or full episode is allowed.
+
+The apparatus requires four paired producer/replay cases, exact scientific
+views, post-clipping pair symmetry at `1e-12`, and zero represented-geometry
+physical false-safes. A structural counterexample requires a tangent branch to
+change the active-row exact risk by at least `0.01` while the active-row 7D
+feature changes by at most `1e-10`. Authorize the matched 7D/17D representation
+ablation only if at least one counterexample exists and at least two validation
+roots have a material tangent descent of at least `0.01`. Otherwise do not
+assume missing tangent coordinates caused ADR-0209.
